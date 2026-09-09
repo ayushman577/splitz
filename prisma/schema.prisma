@@ -1,0 +1,179 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passwordResetTokens PasswordResetToken[]
+
+  accounts Account[]
+  sessions Session[]
+
+  createdGroups    Group[]       @relation("GroupCreator")
+  groupMemberships GroupMember[]
+
+  expensesPaid  Expense[]      @relation("ExpensePayer")
+  expenseSplits ExpenseSplit[]
+
+  paymentsMade     Payment[] @relation("PaymentPayer")
+  paymentsReceived Payment[] @relation("PaymentReceiver")
+}
+
+model Group {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+  joinCode    String  @unique
+  createdById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdBy User @relation("GroupCreator", fields: [createdById], references: [id])
+
+  members  GroupMember[]
+  expenses Expense[]
+  payments Payment[]
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  userId   String
+  groupId  String
+  isAdmin  Boolean  @default(false)
+  joinedAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  group Group @relation(fields: [groupId], references: [id])
+
+  @@unique([userId, groupId])
+}
+
+model Expense {
+  id          String  @id @default(cuid())
+  groupId     String
+  payerId     String
+  title       String
+  description String?
+  amount      Decimal @db.Decimal(12, 2)
+
+  isEdited Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group    Group          @relation(fields: [groupId], references: [id])
+  payer    User           @relation("ExpensePayer", fields: [payerId], references: [id])
+  splits   ExpenseSplit[]
+  payments Payment[]
+
+  @@index([groupId])
+  @@index([payerId])
+}
+
+model ExpenseSplit {
+  id        String  @id @default(cuid())
+  expenseId String
+  userId    String
+  amount    Decimal @db.Decimal(12, 2)
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@index([userId])
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  groupId    String
+  payerId    String
+  receiverId String
+  amount     Decimal       @db.Decimal(12, 2)
+  note       String?
+  status     PaymentStatus @default(PENDING)
+
+  expenseId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group    Group    @relation(fields: [groupId], references: [id])
+  payer    User     @relation("PaymentPayer", fields: [payerId], references: [id])
+  receiver User     @relation("PaymentReceiver", fields: [receiverId], references: [id])
+  expense  Expense? @relation(fields: [expenseId], references: [id])
+
+  @@index([groupId])
+  @@index([payerId])
+  @@index([receiverId])
+  @@index([expenseId])
+}
+
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Account {
+  id                String @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+
+  refresh_token String? @db.Text
+  access_token  String? @db.Text
+  expires_at    Int?
+  token_type    String?
+  scope         String?
+  id_token      String? @db.Text
+  session_state String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
