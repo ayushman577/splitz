@@ -4,16 +4,19 @@ import { useState } from "react";
 import { signOut } from "next-auth/react";
 
 type ProfilePageProps = {
-  userName: string;
-  email: string;
+  userName?: string | null;
+  email?: string | null;
 };
 
 export default function ProfileClient({
   userName,
   email,
 }: ProfilePageProps) {
-  const [name, setName] = useState(userName);
+  const [name, setName] = useState(userName ?? "User");
   const [editing, setEditing] = useState(false);
+
+  const displayName = name.trim() || "User";
+  const displayEmail = email ?? "";
 
   return (
     <main className="min-h-screen bg-[#101317] text-[#F4F7FA]">
@@ -25,7 +28,7 @@ export default function ProfileClient({
           </div>
 
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#3B82F6]/15 text-sm font-semibold text-[#3B82F6]">
-            {name.charAt(0).toUpperCase()}
+            {displayName.charAt(0).toUpperCase()}
           </div>
         </div>
       </header>
@@ -117,6 +120,7 @@ export default function ProfileClient({
                   />
 
                   <button
+                    type="button"
                     onClick={() => setEditing(!editing)}
                     className="rounded-xl border border-[#343A40] px-4 py-3 text-sm font-medium transition hover:bg-[#343A40]/40"
                   >
@@ -132,7 +136,7 @@ export default function ProfileClient({
                 </label>
 
                 <input
-                  value={email}
+                  value={displayEmail}
                   disabled
                   className="mt-2 w-full rounded-xl border border-[#343A40] bg-[#101317] px-4 py-3 text-sm text-[#AAB2BD] opacity-70"
                 />
@@ -144,6 +148,7 @@ export default function ProfileClient({
 
               {editing && (
                 <button
+                  type="button"
                   className="mt-5 rounded-xl bg-[#3B82F6] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2563EB]"
                 >
                   Save Changes
@@ -162,7 +167,12 @@ export default function ProfileClient({
               </p>
 
               <button
-                onClick={() => signOut({ callbackUrl: "/login" })}
+                type="button"
+                onClick={() =>
+                  signOut({
+                    callbackUrl: "/login",
+                  })
+                }
                 className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-3 text-sm font-medium text-red-400 transition hover:bg-red-500/20"
               >
                 Sign Out

@@ -14,10 +14,14 @@ type BalancesPageProps = {
   }>;
 };
 
-export default async function BalancesPage({ params }: BalancesPageProps) {
+export default async function BalancesPage({
+  params,
+}: BalancesPageProps) {
   const session = await auth();
 
-  if (!session?.user?.email) {
+  const userEmail = session?.user?.email;
+
+  if (!userEmail) {
     redirect("/login");
   }
 
@@ -72,13 +76,14 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
   }
 
   const currentUser = group.members.find(
-    (member) => member.user.email === session.user.email
+    (member) => member.user.email === userEmail
   );
 
   if (!currentUser) {
     return (
       <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#101317] p-6 font-['Inter'] text-[#F4F7FA]">
         <div className="pointer-events-none fixed left-1/2 top-1/3 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500/10 blur-[140px]" />
+
         <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-8 text-center shadow-2xl backdrop-blur-xl">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400">
             <svg
@@ -95,12 +100,15 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
               />
             </svg>
           </div>
+
           <h1 className="mt-4 text-xl font-bold tracking-tight text-[#F4F7FA]">
             Access Restricted
           </h1>
+
           <p className="mt-2 text-xs text-[#AAB2BD] sm:text-sm">
             You do not hold active membership in this group.
           </p>
+
           <div className="mt-6">
             <Link
               href="/dashboard"
@@ -147,11 +155,13 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
   );
 
   const youOwe = userSettlements.filter(
-    (settlement) => settlement.fromUserId === currentUser.user.id
+    (settlement) =>
+      settlement.fromUserId === currentUser.user.id
   );
 
   const owedToYou = userSettlements.filter(
-    (settlement) => settlement.toUserId === currentUser.user.id
+    (settlement) =>
+      settlement.toUserId === currentUser.user.id
   );
 
   const totalYouOwe = youOwe.reduce(
@@ -217,12 +227,24 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 <span className="text-xs font-semibold uppercase tracking-wider text-red-400/90">
                   Total You Owe
                 </span>
+
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                    />
                   </svg>
                 </div>
               </div>
+
               <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
                 <span className="text-base text-red-400/70">₹</span>
                 <p className="text-2xl font-bold tracking-tight text-red-400 tabular-nums sm:text-3xl">
@@ -230,8 +252,10 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 </p>
               </div>
             </div>
+
             <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70">
-              {youOwe.length} outgoing settlement{youOwe.length === 1 ? "" : "s"}
+              {youOwe.length} outgoing settlement
+              {youOwe.length === 1 ? "" : "s"}
             </p>
           </div>
 
@@ -242,12 +266,24 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90">
                   You Receive
                 </span>
+
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" />
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"
+                    />
                   </svg>
                 </div>
               </div>
+
               <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
                 <span className="text-base text-emerald-400/70">₹</span>
                 <p className="text-2xl font-bold tracking-tight text-emerald-400 tabular-nums sm:text-3xl">
@@ -255,8 +291,10 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 </p>
               </div>
             </div>
+
             <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70">
-              {owedToYou.length} incoming settlement{owedToYou.length === 1 ? "" : "s"}
+              {owedToYou.length} incoming settlement
+              {owedToYou.length === 1 ? "" : "s"}
             </p>
           </div>
 
@@ -267,10 +305,12 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 <span className="text-xs font-semibold uppercase tracking-wider text-[#AAB2BD]">
                   Net Standing
                 </span>
+
                 <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#343A40] bg-[#181C21] text-xs font-bold text-[#AAB2BD]">
                   ⚖
                 </span>
               </div>
+
               <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
                 <span
                   className={`text-base ${
@@ -281,8 +321,14 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                       : "text-[#F4F7FA]/70"
                   }`}
                 >
-                  {netStanding > 0 ? "+" : netStanding < 0 ? "-" : ""}₹
+                  {netStanding > 0
+                    ? "+"
+                    : netStanding < 0
+                    ? "-"
+                    : ""}
+                  ₹
                 </span>
+
                 <p
                   className={`text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${
                     netStanding > 0
@@ -296,6 +342,7 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
                 </p>
               </div>
             </div>
+
             <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70">
               {netStanding > 0
                 ? "Net positive ledger"
@@ -306,13 +353,13 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
           </div>
         </div>
 
-        {/* =========================================
-            SECTION 1: PENDING CONFIRMATIONS (AWAITING OR REQUIRING ACTION)
-        ========================================= */}
-        {(pendingPaymentsYouReceive.length > 0 || pendingPaymentsYouMade.length > 0) && (
+        {/* Pending Confirmations */}
+        {(pendingPaymentsYouReceive.length > 0 ||
+          pendingPaymentsYouMade.length > 0) && (
           <section className="space-y-3">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-[#F59E0B] shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
+
               <h2 className="text-lg font-bold tracking-tight text-[#F4F7FA]">
                 Pending Confirmations
               </h2>
@@ -323,28 +370,42 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
               {pendingPaymentsYouReceive.map((payment) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition hover:bg-[#181C21]/60"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-[#181C21]/60 sm:px-5"
                 >
                   <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"
+                        />
                       </svg>
                     </div>
+
                     <div className="min-w-0">
                       <p className="truncate text-xs font-semibold text-[#F4F7FA] sm:text-sm">
-                        {payment.payer.name || payment.payer.email}
+                        {payment.payer.name ||
+                          payment.payer.email}
                       </p>
+
                       <p className="truncate text-[11px] text-[#AAB2BD]/70">
                         Marked as paid to you
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-3 ml-2">
-                    <span className="font-mono [font-feature-settings:'zero'] text-xs font-semibold text-emerald-400 tabular-nums sm:text-sm">
+                  <div className="ml-2 flex shrink-0 items-center gap-3">
+                    <span className="font-mono text-xs font-semibold text-emerald-400 tabular-nums [font-feature-settings:'zero'] sm:text-sm">
                       +₹{Number(payment.amount).toFixed(2)}
                     </span>
+
                     <PaymentConfirmationActions
                       groupId={group.id}
                       paymentId={payment.id}
@@ -357,26 +418,31 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
               {pendingPaymentsYouMade.map((payment) => (
                 <div
                   key={payment.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 transition hover:bg-[#181C21]/60"
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-[#181C21]/60 sm:px-5"
                 >
                   <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F59E0B]/30 bg-[#F59E0B]/10 text-xs text-[#F59E0B]">
                       ⏳
                     </div>
+
                     <div className="min-w-0">
                       <p className="truncate text-xs font-semibold text-[#F4F7FA] sm:text-sm">
-                        Paid to {payment.receiver.name || payment.receiver.email}
+                        Paid to{" "}
+                        {payment.receiver.name ||
+                          payment.receiver.email}
                       </p>
+
                       <p className="truncate text-[11px] text-[#F59E0B]">
                         Pending recipient confirmation
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-2.5 ml-2">
-                    <span className="font-mono [font-feature-settings:'zero'] text-xs font-semibold text-[#F4F7FA] tabular-nums sm:text-sm">
+                  <div className="ml-2 flex shrink-0 items-center gap-2.5">
+                    <span className="font-mono text-xs font-semibold text-[#F4F7FA] tabular-nums [font-feature-settings:'zero'] sm:text-sm">
                       ₹{Number(payment.amount).toFixed(2)}
                     </span>
+
                     <span className="rounded-md border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-2 py-0.5 text-[10px] font-medium text-[#F59E0B]">
                       Pending
                     </span>
@@ -387,20 +453,21 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
           </section>
         )}
 
-        {/* =========================================
-            SECTION 2: YOU OWE
-        ========================================= */}
+        {/* You Owe */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-red-400" />
+
               <h2 className="text-lg font-bold tracking-tight text-[#F4F7FA]">
                 You Owe
               </h2>
             </div>
+
             {youOwe.length > 0 && (
               <span className="font-mono text-xs text-[#AAB2BD]/60">
-                {youOwe.length} SETTLEMENT{youOwe.length === 1 ? "" : "S"}
+                {youOwe.length} SETTLEMENT
+                {youOwe.length === 1 ? "" : "S"}
               </span>
             )}
           </div>
@@ -412,33 +479,50 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
           ) : (
             <div className="divide-y divide-[#343A40]/40 overflow-hidden rounded-2xl border border-[#343A40]/70 bg-[#101317]/85 backdrop-blur-md">
               {youOwe.map((settlement) => {
-                const isPending = pendingPaymentsYouMade.some(
-                  (p) => p.receiverId === settlement.toUserId
-                );
+                const isPending =
+                  pendingPaymentsYouMade.some(
+                    (p) =>
+                      p.receiverId ===
+                      settlement.toUserId
+                  );
 
                 return (
                   <div
                     key={`${settlement.fromUserId}-${settlement.toUserId}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5 transition hover:bg-[#181C21]/60"
+                    className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-[#181C21]/60 sm:px-5"
                   >
                     <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                          />
                         </svg>
                       </div>
+
                       <div className="min-w-0">
                         <p className="truncate text-xs font-semibold text-[#F4F7FA] sm:text-sm">
-                          {getMemberName(settlement.toUserId)}
+                          {getMemberName(
+                            settlement.toUserId
+                          )}
                         </p>
+
                         <p className="truncate text-[11px] text-[#AAB2BD]/70">
                           Direct debt transfer
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-3 ml-2">
-                      <span className="font-mono [font-feature-settings:'zero'] text-xs font-semibold text-red-400 tabular-nums sm:text-sm">
+                    <div className="ml-2 flex shrink-0 items-center gap-3">
+                      <span className="font-mono text-xs font-semibold text-red-400 tabular-nums [font-feature-settings:'zero'] sm:text-sm">
                         -₹{settlement.amount.toFixed(2)}
                       </span>
 
@@ -461,20 +545,21 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
           )}
         </section>
 
-        {/* =========================================
-            SECTION 3: YOU WILL RECEIVE
-        ========================================= */}
+        {/* You Will Receive */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
+
               <h2 className="text-lg font-bold tracking-tight text-[#F4F7FA]">
                 You Will Receive
               </h2>
             </div>
+
             {owedToYou.length > 0 && (
               <span className="font-mono text-xs text-[#AAB2BD]/60">
-                {owedToYou.length} SETTLEMENT{owedToYou.length === 1 ? "" : "S"}
+                {owedToYou.length} SETTLEMENT
+                {owedToYou.length === 1 ? "" : "S"}
               </span>
             )}
           </div>
@@ -488,26 +573,40 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
               {owedToYou.map((settlement) => (
                 <div
                   key={`${settlement.fromUserId}-${settlement.toUserId}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-5 transition hover:bg-[#181C21]/60"
+                  className="flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-[#181C21]/60 sm:px-5"
                 >
                   <div className="flex min-w-0 items-center gap-3 sm:gap-3.5">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" />
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"
+                        />
                       </svg>
                     </div>
+
                     <div className="min-w-0">
                       <p className="truncate text-xs font-semibold text-[#F4F7FA] sm:text-sm">
-                        {getMemberName(settlement.fromUserId)}
+                        {getMemberName(
+                          settlement.fromUserId
+                        )}
                       </p>
+
                       <p className="truncate text-[11px] text-[#AAB2BD]/70">
                         Owed to you
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex shrink-0 items-center gap-3 ml-2">
-                    <span className="font-mono [font-feature-settings:'zero'] text-xs font-semibold text-emerald-400 tabular-nums sm:text-sm">
+                  <div className="ml-2 flex shrink-0 items-center gap-3">
+                    <span className="font-mono text-xs font-semibold text-emerald-400 tabular-nums [font-feature-settings:'zero'] sm:text-sm">
                       +₹{settlement.amount.toFixed(2)}
                     </span>
 
@@ -524,19 +623,22 @@ export default async function BalancesPage({ params }: BalancesPageProps) {
         </section>
 
         {/* Zero State */}
-        {userSettlements.length === 0 && pendingPayments.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-[#343A40] bg-[#101317]/60 p-8 text-center sm:p-12">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-lg text-emerald-400">
-              ✓
+        {userSettlements.length === 0 &&
+          pendingPayments.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-[#343A40] bg-[#101317]/60 p-8 text-center sm:p-12">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-lg text-emerald-400">
+                ✓
+              </div>
+
+              <h2 className="mt-4 text-base font-bold text-[#F4F7FA] sm:text-lg">
+                You&apos;re completely settled up
+              </h2>
+
+              <p className="mt-1 text-xs text-[#AAB2BD] sm:text-sm">
+                You don&apos;t owe any money, and nobody owes you across this group ledger.
+              </p>
             </div>
-            <h2 className="mt-4 text-base font-bold text-[#F4F7FA] sm:text-lg">
-              You&apos;re completely settled up
-            </h2>
-            <p className="mt-1 text-xs text-[#AAB2BD] sm:text-sm">
-              You don&apos;t owe any money, and nobody owes you across this group ledger.
-            </p>
-          </div>
-        )}
+          )}
       </main>
     </div>
   );

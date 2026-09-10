@@ -46,31 +46,43 @@ export default async function DashboardPage() {
   let totalOwed = 0;
 
   for (const membership of groups) {
-    const settlement = await calculateGroupSettlements(
+    const settlements = await calculateGroupSettlements(
       membership.group.id
     );
 
-    const mySettlement = settlement.find(
-      (item) => item.userId === user.id
-    );
+    for (const settlement of settlements) {
+      /*
+       * fromUserId -> person who has to pay
+       * toUserId   -> person who receives
+       */
 
-    if (!mySettlement) {
-      continue;
-    }
+      if (settlement.fromUserId === user.id) {
+        totalOwe += settlement.amount;
+      }
 
-    if (mySettlement.net < 0) {
-      totalOwe += Math.abs(mySettlement.net);
-    } else {
-      totalOwed += mySettlement.net;
+      if (settlement.toUserId === user.id) {
+        totalOwed += settlement.amount;
+      }
     }
   }
 
-  const netBalance = totalOwed - totalOwe;
+  totalOwe =
+    Math.round((totalOwe + Number.EPSILON) * 100) / 100;
+
+  totalOwed =
+    Math.round((totalOwed + Number.EPSILON) * 100) / 100;
+
+  const netBalance =
+    Math.round(
+      (totalOwed - totalOwe + Number.EPSILON) * 100
+    ) / 100;
 
   /* =========================================
      GROUP IDS & ALL RECENT ACTIVITY
   ========================================= */
-  const groupIds = groups.map((membership) => membership.group.id);
+  const groupIds = groups.map(
+    (membership) => membership.group.id
+  );
 
   const allRecentExpenses =
     groupIds.length > 0
@@ -124,23 +136,26 @@ export default async function DashboardPage() {
     joinCode: membership.group.joinCode,
   }));
 
-  const dashboardActivities = allRecentExpenses.map((expense) => ({
-    id: expense.id,
-    title: expense.title,
-    description: expense.description,
-    amount: expense.amount.toString(),
-    createdAt: expense.createdAt.toISOString(),
-    group: {
-      id: expense.group.id,
-      name: expense.group.name,
-    },
-    payer: {
-      id: expense.payer.id,
-      name: expense.payer.name,
-      email: expense.payer.email,
-    },
-    splitAmount: expense.splits[0]?.amount.toString() ?? "0.00",
-  }));
+  const dashboardActivities = allRecentExpenses.map(
+    (expense) => ({
+      id: expense.id,
+      title: expense.title,
+      description: expense.description,
+      amount: expense.amount.toString(),
+      createdAt: expense.createdAt.toISOString(),
+      group: {
+        id: expense.group.id,
+        name: expense.group.name,
+      },
+      payer: {
+        id: expense.payer.id,
+        name: expense.payer.name,
+        email: expense.payer.email,
+      },
+      splitAmount:
+        expense.splits[0]?.amount.toString() ?? "0.00",
+    })
+  );
 
   const firstName = (user.name || "there").split(" ")[0];
 
@@ -150,6 +165,7 @@ export default async function DashboardPage() {
 
       {/* Atmospheric lighting glows */}
       <div className="pointer-events-none fixed left-1/2 top-[-120px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-[#3B82F6]/10 blur-[170px]" />
+
       <div className="pointer-events-none fixed bottom-0 right-0 h-[450px] w-[450px] rounded-full bg-[#343A40]/30 blur-[160px]" />
 
       {/* =========================================
@@ -157,18 +173,22 @@ export default async function DashboardPage() {
       ========================================= */}
       <header className="sticky top-0 z-40 border-b border-[#343A40]/80 bg-[#101317]/90 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* SplitZ Logo with Signature Gradient */}
+          {/* SplitZ Logo */}
           <Link
             href="/dashboard"
-            className="group text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+            className="group font-['Inter'] text-2xl font-bold tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
           >
-            <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
-              SplitZ.
+            Split
+            <span className="inline-block text-[#3B82F6] underline decoration-[#3B82F6] decoration-2 underline-offset-4 transition-transform duration-200 group-hover:scale-110">
+              Z
             </span>
           </Link>
 
           <div className="flex items-center gap-3">
-            <ProfileMenu name={user.name || "User"} email={user.email} />
+            <ProfileMenu
+              name={user.name || "User"}
+              email={user.email}
+            />
           </div>
         </div>
       </header>
@@ -176,7 +196,7 @@ export default async function DashboardPage() {
       {/* =========================================
           MAIN STAGE
       ========================================= */}
-      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-7 sm:space-y-8 sm:py-10 sm:px-6 lg:px-8 transition-opacity duration-500 ease-out">
+      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-7 transition-opacity duration-500 ease-out sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Header Greeting & Action Row */}
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div className="space-y-1">
@@ -188,7 +208,8 @@ export default async function DashboardPage() {
             </h1>
 
             <p className="text-xs text-[#AAB2BD] sm:text-sm">
-              Real-time summary of group obligations, credits, and settlements.
+              Real-time summary of group obligations, credits,
+              and settlements.
             </p>
           </div>
 
@@ -196,7 +217,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-2 gap-2.5 sm:flex sm:shrink-0 sm:items-center">
             <Link
               href="/groups/join"
-              className="flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl border border-[#343A40] bg-[#181C21] px-4 text-xs font-semibold text-[#F4F7FA] shadow-md shadow-black/30 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#AAB2BD]/40 hover:bg-[#343A40]/60 active:translate-y-0 active:scale-95 sm:text-sm"
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-[#343A40] bg-[#181C21] px-4 text-xs font-semibold text-[#F4F7FA] shadow-md shadow-black/30 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#AAB2BD]/40 hover:bg-[#343A40]/60 active:translate-y-0 active:scale-95 sm:h-11 sm:text-sm"
             >
               <svg
                 className="h-4 w-4 text-[#AAB2BD]"
@@ -211,16 +232,23 @@ export default async function DashboardPage() {
                   d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
                 />
               </svg>
+
               <span>Join Group</span>
             </Link>
 
             <Link
               href="/groups/create"
-              className="group relative flex h-10 sm:h-11 items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#3B82F6] px-5 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.5)] active:translate-y-0 active:scale-95 sm:text-sm"
+              className="group relative flex h-10 items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#3B82F6] px-5 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.5)] active:translate-y-0 active:scale-95 sm:h-11 sm:text-sm"
             >
               <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
-              <span className="text-base font-bold leading-none">＋</span>
-              <span className="relative">Create Group</span>
+
+              <span className="text-base font-bold leading-none">
+                ＋
+              </span>
+
+              <span className="relative">
+                Create Group
+              </span>
             </Link>
           </div>
         </div>
@@ -235,6 +263,7 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-2 w-2 rounded-full bg-red-400" />
+
                   <span className="text-xs font-medium uppercase tracking-wider text-red-400/90">
                     You Owe
                   </span>
@@ -261,7 +290,8 @@ export default async function DashboardPage() {
                 <span className="text-lg font-normal text-red-400/70 sm:text-xl">
                   ₹
                 </span>
-                <p className="text-2xl sm:text-3xl font-medium tracking-tight text-red-400 tabular-nums">
+
+                <p className="text-2xl font-medium tracking-tight text-red-400 tabular-nums sm:text-3xl">
                   {totalOwe.toFixed(2)}
                 </p>
               </div>
@@ -282,6 +312,7 @@ export default async function DashboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+
                   <span className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
                     You Are Owed
                   </span>
@@ -308,7 +339,8 @@ export default async function DashboardPage() {
                 <span className="text-lg font-normal text-emerald-400/70 sm:text-xl">
                   ₹
                 </span>
-                <p className="text-2xl sm:text-3xl font-medium tracking-tight text-emerald-400 tabular-nums">
+
+                <p className="text-2xl font-medium tracking-tight text-emerald-400 tabular-nums sm:text-3xl">
                   {totalOwed.toFixed(2)}
                 </p>
               </div>
@@ -337,6 +369,7 @@ export default async function DashboardPage() {
                         : "bg-[#3B82F6]"
                     }`}
                   />
+
                   <span className="text-xs font-medium uppercase tracking-wider text-[#AAB2BD]">
                     Net Standing
                   </span>
@@ -369,10 +402,16 @@ export default async function DashboardPage() {
                       : "text-[#F4F7FA]/70"
                   }`}
                 >
-                  {netBalance > 0 ? "+" : netBalance < 0 ? "-" : ""}₹
+                  {netBalance > 0
+                    ? "+"
+                    : netBalance < 0
+                    ? "-"
+                    : ""}
+                  ₹
                 </span>
+
                 <p
-                  className={`text-2xl sm:text-3xl font-medium tracking-tight tabular-nums ${
+                  className={`text-2xl font-medium tracking-tight tabular-nums sm:text-3xl ${
                     netBalance > 0
                       ? "text-emerald-400"
                       : netBalance < 0
