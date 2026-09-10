@@ -1,267 +1,413 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateGroupSettlements } from "@/lib/balances";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import ProfileMenu from "./ProfileMenu";
-
-
 import DashboardHistoryRefresh from "./DashboardHistoryRefresh";
+import DashboardInteractiveSections from "./DashboardInteractiveSections";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function DashboardPage() {
-    const session = await auth();
+  const session = await auth();
 
-    if (!session?.user?.email) {
-        redirect("/login");
-    }
+  if (!session?.user?.email) {
+    redirect("/login");
+  }
 
-    const userName = session.user.name || "there";
-
-    // Get the logged-in user and all groups they belong to
-    const user = await prisma.user.findUnique({
-        where: {
-            email: session.user.email,
-        },
+  const user = await prisma.user.findUnique({
+    where: {
+      email: session.user.email,
+    },
+    include: {
+      groupMemberships: {
         include: {
-            groupMemberships: {
-                include: {
-                    group: true,
-                },
-                orderBy: {
-                    joinedAt: "desc",
-                },
-            },
+          group: true,
         },
-    });
+        orderBy: {
+          joinedAt: "desc",
+        },
+      },
+    },
+  });
 
-    if (!user) {
-        redirect("/login");
+  if (!user) {
+    redirect("/login");
+  }
+
+  const groups = user.groupMemberships;
+
+  /* =========================================
+     CALCULATE DASHBOARD BALANCES
+  ========================================= */
+  let totalOwe = 0;
+  let totalOwed = 0;
+
+  for (const membership of groups) {
+    const settlement = await calculateGroupSettlements(
+      membership.group.id
+    );
+
+    const mySettlement = settlement.find(
+      (item) => item.userId === user.id
+    );
+
+    if (!mySettlement) {
+      continue;
     }
 
-    const groups = user.groupMemberships;
+    if (mySettlement.net < 0) {
+      totalOwe += Math.abs(mySettlement.net);
+    } else {
+      totalOwed += mySettlement.net;
+    }
+  }
 
-    return (
-        <main className="min-h-screen bg-[#101317] text-[#F4F7FA]">
-            <DashboardHistoryRefresh />
-            {/* Header */}
-            <header className="border-b border-[#343A40] bg-[#101317]/90 backdrop-blur-xl">
-                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-                    <div className="font-['Inter'] text-2xl font-bold tracking-tight">
-                        Split
-                        <span className="text-[#3B82F6]">Z</span>
-                    </div>
+  const netBalance = totalOwed - totalOwe;
 
-                    <ProfileMenu
-                        name={userName}
-                        email={session.user.email}
-                    />
+  /* =========================================
+     GROUP IDS & ALL RECENT ACTIVITY
+  ========================================= */
+  const groupIds = groups.map((membership) => membership.group.id);
+
+  const allRecentExpenses =
+    groupIds.length > 0
+      ? await prisma.expense.findMany({
+          where: {
+            groupId: {
+              in: groupIds,
+            },
+            splits: {
+              some: {
+                userId: user.id,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            payer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            splits: {
+              where: {
+                userId: user.id,
+              },
+              select: {
+                amount: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  /* =========================================
+     SERIALIZABLE DATA
+  ========================================= */
+  const dashboardGroups = groups.map((membership) => ({
+    id: membership.group.id,
+    name: membership.group.name,
+    description: membership.group.description,
+    joinCode: membership.group.joinCode,
+  }));
+
+  const dashboardActivities = allRecentExpenses.map((expense) => ({
+    id: expense.id,
+    title: expense.title,
+    description: expense.description,
+    amount: expense.amount.toString(),
+    createdAt: expense.createdAt.toISOString(),
+    group: {
+      id: expense.group.id,
+      name: expense.group.name,
+    },
+    payer: {
+      id: expense.payer.id,
+      name: expense.payer.name,
+      email: expense.payer.email,
+    },
+    splitAmount: expense.splits[0]?.amount.toString() ?? "0.00",
+  }));
+
+  const firstName = (user.name || "there").split(" ")[0];
+
+  return (
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-[#101317] font-['Inter'] text-[#F4F7FA] selection:bg-[#3B82F6] selection:text-white">
+      <DashboardHistoryRefresh />
+
+      {/* Atmospheric lighting glows */}
+      <div className="pointer-events-none fixed left-1/2 top-[-120px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-[#3B82F6]/10 blur-[170px]" />
+      <div className="pointer-events-none fixed bottom-0 right-0 h-[450px] w-[450px] rounded-full bg-[#343A40]/30 blur-[160px]" />
+
+      {/* =========================================
+          CLEAN HEADER
+      ========================================= */}
+      <header className="sticky top-0 z-40 border-b border-[#343A40]/80 bg-[#101317]/90 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          {/* SplitZ Logo with Signature Gradient */}
+          <Link
+            href="/dashboard"
+            className="group text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+          >
+            <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+              SplitZ.
+            </span>
+          </Link>
+
+          <div className="flex items-center gap-3">
+            <ProfileMenu name={user.name || "User"} email={user.email} />
+          </div>
+        </div>
+      </header>
+
+      {/* =========================================
+          MAIN STAGE
+      ========================================= */}
+      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-7 sm:space-y-8 sm:py-10 sm:px-6 lg:px-8 transition-opacity duration-500 ease-out">
+        {/* Header Greeting & Action Row */}
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">
+              Welcome back,{" "}
+              <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent">
+                {firstName}!
+              </span>
+            </h1>
+
+            <p className="text-xs text-[#AAB2BD] sm:text-sm">
+              Real-time summary of group obligations, credits, and settlements.
+            </p>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="grid grid-cols-2 gap-2.5 sm:flex sm:shrink-0 sm:items-center">
+            <Link
+              href="/groups/join"
+              className="flex h-10 sm:h-11 items-center justify-center gap-2 rounded-xl border border-[#343A40] bg-[#181C21] px-4 text-xs font-semibold text-[#F4F7FA] shadow-md shadow-black/30 transition-all duration-150 hover:-translate-y-0.5 hover:border-[#AAB2BD]/40 hover:bg-[#343A40]/60 active:translate-y-0 active:scale-95 sm:text-sm"
+            >
+              <svg
+                className="h-4 w-4 text-[#AAB2BD]"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                />
+              </svg>
+              <span>Join Group</span>
+            </Link>
+
+            <Link
+              href="/groups/create"
+              className="group relative flex h-10 sm:h-11 items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#3B82F6] px-5 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-150 hover:-translate-y-0.5 hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.5)] active:translate-y-0 active:scale-95 sm:text-sm"
+            >
+              <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              <span className="text-base font-bold leading-none">＋</span>
+              <span className="relative">Create Group</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* =========================================
+            SUMMARY METRICS CARDS
+        ========================================= */}
+        <div className="grid gap-3.5 sm:grid-cols-3 sm:gap-4">
+          {/* You Owe */}
+          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#181316]/80 to-[#101317] p-5 shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-0.5 hover:border-red-500/35 hover:shadow-[0_4px_25px_rgba(239,68,68,0.1)]">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-red-400" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-red-400/90">
+                    You Owe
+                  </span>
                 </div>
-            </header>
 
-            <div className="mx-auto flex max-w-7xl">
-                {/* Sidebar */}
-                <aside className="hidden min-h-[calc(100vh-73px)] w-56 border-r border-[#343A40] px-4 py-6 md:block">
-                    <nav className="space-y-1">
-                        <a
-                            href="/dashboard"
-                            className="block rounded-xl bg-[#3B82F6]/10 px-4 py-3 text-sm font-medium text-[#3B82F6]"
-                        >
-                            Dashboard
-                        </a>
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"
+                    />
+                  </svg>
+                </div>
+              </div>
 
-                        <a
-                            href="/groups"
-                            className="block rounded-xl px-4 py-3 text-sm text-[#AAB2BD] transition hover:bg-[#343A40]/40 hover:text-[#F4F7FA]"
-                        >
-                            Groups
-                        </a>
-
-                        <a
-                            href="/expenses"
-                            className="block rounded-xl px-4 py-3 text-sm text-[#AAB2BD] transition hover:bg-[#343A40]/40 hover:text-[#F4F7FA]"
-                        >
-                            Expenses
-                        </a>
-
-                        <a
-                            href="/balances"
-                            className="block rounded-xl px-4 py-3 text-sm text-[#AAB2BD] transition hover:bg-[#343A40]/40 hover:text-[#F4F7FA]"
-                        >
-                            Balances
-                        </a>
-
-                        <a
-                            href="/payments"
-                            className="block rounded-xl px-4 py-3 text-sm text-[#AAB2BD] transition hover:bg-[#343A40]/40 hover:text-[#F4F7FA]"
-                        >
-                            Payments
-                        </a>
-                    </nav>
-                </aside>
-
-                {/* Main content */}
-                <section className="w-full px-6 py-8 lg:px-10">
-                    {/* Welcome */}
-                    <div className="mb-8">
-                        <p className="text-sm text-[#AAB2BD]">
-                            Your personal expense dashboard
-                        </p>
-
-                        <h1 className="mt-1 text-3xl font-bold tracking-tight">
-                            Good to see you, {userName.split(" ")[0]} 👋
-                        </h1>
-                    </div>
-
-                    {/* Balance cards */}
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <div className="rounded-2xl border border-[#343A40] bg-[#181C21] p-5">
-                            <p className="text-sm text-[#AAB2BD]">
-                                Total Balance
-                            </p>
-
-                            <p className="mt-3 text-3xl font-bold">
-                                ₹0.00
-                            </p>
-
-                            <p className="mt-2 text-xs text-[#AAB2BD]">
-                                Your overall balance
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-[#343A40] bg-[#181C21] p-5">
-                            <p className="text-sm text-[#AAB2BD]">
-                                You Owe
-                            </p>
-
-                            <p className="mt-3 text-3xl font-bold text-red-400">
-                                ₹0.00
-                            </p>
-
-                            <p className="mt-2 text-xs text-[#AAB2BD]">
-                                Amount you need to pay
-                            </p>
-                        </div>
-
-                        <div className="rounded-2xl border border-[#343A40] bg-[#181C21] p-5">
-                            <p className="text-sm text-[#AAB2BD]">
-                                You Are Owed
-                            </p>
-
-                            <p className="mt-3 text-3xl font-bold text-green-400">
-                                ₹0.00
-                            </p>
-
-                            <p className="mt-2 text-xs text-[#AAB2BD]">
-                                Amount others owe you
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* Groups */}
-                    <div className="mt-8 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                        <div className="flex items-center justify-between gap-4">
-                            <div>
-                                <h2 className="text-lg font-semibold">
-                                    Your Groups
-                                </h2>
-
-                                <p className="mt-1 text-xs text-[#AAB2BD]">
-                                    Manage your shared expenses
-                                </p>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3">
-                                <a
-                                    href="/groups/join"
-                                    className="rounded-xl border border-[#343A40] px-4 py-2 text-sm font-medium text-[#F4F7FA] transition hover:bg-[#343A40]/40"
-                                >
-                                    + Join Group
-                                </a>
-
-                                <a
-                                    href="/groups/create"
-                                    className="rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#2563EB]"
-                                >
-                                    + Create Group
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Group list */}
-                        {groups.length === 0 ? (
-                            <div className="mt-6 rounded-xl border border-dashed border-[#343A40] px-6 py-10 text-center">
-                                <p className="text-sm font-medium text-[#F4F7FA]">
-                                    No groups yet
-                                </p>
-
-                                <p className="mt-1 text-xs text-[#AAB2BD]">
-                                    Create your first group or join one using an invite.
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                                {groups.map((membership) => (
-                                    <a
-                                        key={membership.group.id}
-                                        href={`/groups/${membership.group.id}`}
-                                        className="group rounded-xl border border-[#343A40] bg-[#101317] p-5 transition hover:border-[#3B82F6]/50 hover:bg-[#343A40]/20"
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="min-w-0">
-                                                <h3 className="truncate text-base font-semibold">
-                                                    {membership.group.name}
-                                                </h3>
-
-                                                {membership.group.description && (
-                                                    <p className="mt-2 line-clamp-2 text-xs text-[#AAB2BD]">
-                                                        {membership.group.description}
-                                                    </p>
-                                                )}
-                                            </div>
-
-                                            {membership.isAdmin && (
-                                                <span className="shrink-0 rounded-lg bg-[#3B82F6]/10 px-2 py-1 text-[11px] font-medium text-[#3B82F6]">
-                                                    Admin
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        <div className="mt-5 flex items-center justify-between">
-                                            <span className="text-xs text-[#6B7280]">
-                                                Joined{" "}
-                                                {new Date(
-                                                    membership.joinedAt
-                                                ).toLocaleDateString()}
-                                            </span>
-
-                                            <span className="text-sm text-[#3B82F6] transition group-hover:translate-x-1">
-                                                →
-                                            </span>
-                                        </div>
-                                    </a>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Recent activity */}
-                    <div className="mt-6 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                        <h2 className="text-lg font-semibold">
-                            Recent Activity
-                        </h2>
-
-                        <p className="mt-1 text-xs text-[#AAB2BD]">
-                            Your latest expenses and payments
-                        </p>
-
-                        <div className="mt-6 py-8 text-center">
-                            <p className="text-sm text-[#AAB2BD]">
-                                No activity yet.
-                            </p>
-                        </div>
-                    </div>
-                </section>
+              <div className="mt-4 flex items-baseline gap-1.5 font-mono [font-feature-settings:'zero']">
+                <span className="text-lg font-normal text-red-400/70 sm:text-xl">
+                  ₹
+                </span>
+                <p className="text-2xl sm:text-3xl font-medium tracking-tight text-red-400 tabular-nums">
+                  {totalOwe.toFixed(2)}
+                </p>
+              </div>
             </div>
-        </main>
-    );
+
+            <div className="mt-4 border-t border-[#343A40]/40 pt-3">
+              <p className="text-xs text-[#AAB2BD]/80">
+                {totalOwe === 0
+                  ? "No pending payments"
+                  : "Pending payback to friends"}
+              </p>
+            </div>
+          </div>
+
+          {/* You Are Owed */}
+          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#111816]/80 to-[#101317] p-5 shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-500/35 hover:shadow-[0_4px_25px_rgba(16,185,129,0.1)]">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="text-xs font-medium uppercase tracking-wider text-emerald-400/90">
+                    You Are Owed
+                  </span>
+                </div>
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-1.5 font-mono [font-feature-settings:'zero']">
+                <span className="text-lg font-normal text-emerald-400/70 sm:text-xl">
+                  ₹
+                </span>
+                <p className="text-2xl sm:text-3xl font-medium tracking-tight text-emerald-400 tabular-nums">
+                  {totalOwed.toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-[#343A40]/40 pt-3">
+              <p className="text-xs text-[#AAB2BD]/80">
+                {totalOwed === 0
+                  ? "All debts are settled"
+                  : "Upcoming returns from friends"}
+              </p>
+            </div>
+          </div>
+
+          {/* Net Balance */}
+          <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#141A24]/80 to-[#101317] p-5 shadow-lg shadow-black/30 transition-all duration-300 hover:-translate-y-0.5 hover:border-[#3B82F6]/35 hover:shadow-[0_4px_25px_rgba(59,130,246,0.1)]">
+            <div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`flex h-2 w-2 rounded-full ${
+                      netBalance > 0
+                        ? "bg-emerald-400"
+                        : netBalance < 0
+                        ? "bg-red-400"
+                        : "bg-[#3B82F6]"
+                    }`}
+                  />
+                  <span className="text-xs font-medium uppercase tracking-wider text-[#AAB2BD]">
+                    Net Standing
+                  </span>
+                </div>
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#343A40] bg-[#343A40]/30 text-[#AAB2BD]">
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-baseline gap-1.5 font-mono [font-feature-settings:'zero']">
+                <span
+                  className={`text-lg font-normal sm:text-xl ${
+                    netBalance > 0
+                      ? "text-emerald-400/70"
+                      : netBalance < 0
+                      ? "text-red-400/70"
+                      : "text-[#F4F7FA]/70"
+                  }`}
+                >
+                  {netBalance > 0 ? "+" : netBalance < 0 ? "-" : ""}₹
+                </span>
+                <p
+                  className={`text-2xl sm:text-3xl font-medium tracking-tight tabular-nums ${
+                    netBalance > 0
+                      ? "text-emerald-400"
+                      : netBalance < 0
+                      ? "text-red-400"
+                      : "text-[#F4F7FA]"
+                  }`}
+                >
+                  {Math.abs(netBalance).toFixed(2)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 border-t border-[#343A40]/40 pt-3">
+              <p className="text-xs text-[#AAB2BD]/80">
+                {netBalance > 0
+                  ? "You're in credit overall"
+                  : netBalance < 0
+                  ? "You have a negative ledger"
+                  : "All balances are even"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================
+            GROUPS & ACTIVITY INTERACTIVE CANVAS
+        ========================================= */}
+        <div>
+          <DashboardInteractiveSections
+            groups={dashboardGroups}
+            activities={dashboardActivities}
+            currentUserId={user.id}
+          />
+        </div>
+      </main>
+    </div>
+  );
 }

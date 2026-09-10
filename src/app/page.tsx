@@ -14,10 +14,9 @@ export default function Home() {
           href="/"
           className="group font-['Inter'] font-bold text-2xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
-          Split
-          <span className="text-[#3B82F6] inline-block transition-transform duration-200 group-hover:scale-110">
-            Z
-          </span>
+          <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+                            SplitZ.
+                        </span>
         </Link>
 
         <nav className="flex items-center gap-3">
@@ -96,7 +95,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 w-full text-center py-4 border-t border-[#343A40]/60 max-w-6xl mx-auto">
         <p className="font-['Inter'] text-xs text-[#AAB2BD]/70 tracking-wide">
-          Made by Ayushman ©Splitz
+          © 2026 Splitz. All rights reserved.
         </p>
       </footer>
 

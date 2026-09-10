@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 type Params = {
     groupId: string;
@@ -101,7 +102,6 @@ async function getAuthorizedExpense(
         };
     }
 
-
     const canManage =
         group.createdById === currentUser.id ||
         expense.payerId === currentUser.id;
@@ -126,373 +126,51 @@ async function getAuthorizedExpense(
     };
 }
 
-// =====================================================
-// PATCH — EDIT EXPENSE
-// =====================================================
-
-export async function PATCH(
+export async function DELETE(
     request: Request,
-    {
-        params,
-    }: {
-        params: Promise<Params>;
-    }
+    { params }: { params: Promise<Params> }
 ) {
     try {
         const { groupId, expenseId } = await params;
 
-        const authorized = await getAuthorizedExpense(
+        const result = await getAuthorizedExpense(
             groupId,
             expenseId
         );
 
-        if ("error" in authorized) {
-            return authorized.error;
+        if ("error" in result) {
+            return result.error;
         }
 
-        const { currentUser, group, expense } = authorized;
+        // Delete the expense.
+        //
+        // ExpenseSplit records are automatically deleted because
+        // the Prisma relation uses onDelete: Cascade.
+        await prisma.expense.delete({
+            where: {
+                id: expenseId,
+            },
+        });
 
-        const body = await request.json();
-
-        const title =
-            typeof body.title === "string"
-                ? body.title.trim()
-                : "";
-
-        const description =
-            typeof body.description === "string"
-                ? body.description.trim()
-                : null;
-
-        const amount = Number(body.amount);
-
-        const payerId =
-            typeof body.payerId === "string"
-                ? body.payerId
-                : "";
-
-        const isOwner = group.createdById === authorized.currentUser.id;
-
-        if (!isOwner && payerId !== expense.payerId) {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "Only the group owner can change who paid.",
-                },
-                { status: 403 }
-            );
-        }
-
-        const splitType =
-            body.splitType === "CUSTOM"
-                ? "CUSTOM"
-                : "EQUAL";
-
-        const splits = Array.isArray(body.splits)
-            ? body.splits
-            : [];
-
-        // -----------------------------------------
-        // BASIC VALIDATION
-        // -----------------------------------------
-
-        if (!title) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Payment title is required.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (title.length > 100) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Payment title is too long.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (!Number.isFinite(amount) || amount <= 0) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Amount must be greater than zero.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (!payerId) {
-            return Response.json(
-                {
-                    success: false,
-                    message: "Payer is required.",
-                },
-                { status: 400 }
-            );
-        }
-
-        if (!splits.length) {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "At least one member must be selected.",
-                },
-                { status: 400 }
-            );
-        }
-
-        // -----------------------------------------
-        // PAYER MUST BE A GROUP MEMBER
-        // -----------------------------------------
-
-        const payerIsMember = group.members.some(
-            (member) => member.userId === payerId
-        );
-
-        if (!payerIsMember) {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "The selected payer is not a group member.",
-                },
-                { status: 400 }
-            );
-        }
-
-        // -----------------------------------------
-        // CHECK DUPLICATE MEMBERS
-        // -----------------------------------------
-
-        const splitUserIds = splits.map(
-            (split: { userId: string }) => split.userId
-        );
-
-        const uniqueUserIds = new Set(splitUserIds);
-
-        if (uniqueUserIds.size !== splitUserIds.length) {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "A member cannot be selected more than once.",
-                },
-                { status: 400 }
-            );
-        }
-
-        // -----------------------------------------
-        // CHECK MEMBERS BELONG TO GROUP
-        // -----------------------------------------
-
-        const groupMemberIds = new Set(
-            group.members.map((member) => member.userId)
-        );
-
-        const invalidMember = splitUserIds.some(
-            (userId) => !groupMemberIds.has(userId)
-        );
-
-        if (invalidMember) {
-            return Response.json(
-                {
-                    success: false,
-                    message:
-                        "One or more selected members do not belong to this group.",
-                },
-                { status: 400 }
-            );
-        }
-
-        // -----------------------------------------
-        // CALCULATE SPLITS
-        // -----------------------------------------
-
-        const amountInPaise = Math.round(amount * 100);
-
-        let calculatedSplits: {
-            userId: string;
-            amount: number;
-        }[];
-
-        if (splitType === "EQUAL") {
-            const memberCount = splitUserIds.length;
-
-            const baseAmount = Math.floor(
-                amountInPaise / memberCount
-            );
-
-            const remainder =
-                amountInPaise % memberCount;
-
-            calculatedSplits = splitUserIds.map(
-                (userId, index) => {
-                    const splitAmount =
-                        baseAmount +
-                        (index < remainder ? 1 : 0);
-
-                    return {
-                        userId,
-                        amount: splitAmount / 100,
-                    };
-                }
-            );
-        } else {
-            calculatedSplits = splits.map(
-                (split: {
-                    userId: string;
-                    amount?: number;
-                }) => ({
-                    userId: split.userId,
-                    amount: Number(split.amount),
-                })
-            );
-
-            const customTotal =
-                calculatedSplits.reduce(
-                    (total, split) =>
-                        total +
-                        Math.round(split.amount * 100),
-                    0
-                );
-
-            if (customTotal !== amountInPaise) {
-                return Response.json(
-                    {
-                        success: false,
-                        message: `Custom split must equal ₹${amount.toFixed(
-                            2
-                        )}. Current split total is ₹${(
-                            customTotal / 100
-                        ).toFixed(2)}.`,
-                    },
-                    { status: 400 }
-                );
-            }
-
-            const hasInvalidAmount =
-                calculatedSplits.some(
-                    (split) =>
-                        !Number.isFinite(split.amount) ||
-                        split.amount <= 0
-                );
-
-            if (hasInvalidAmount) {
-                return Response.json(
-                    {
-                        success: false,
-                        message:
-                            "Each split amount must be greater than zero.",
-                    },
-                    { status: 400 }
-                );
-            }
-        }
-
-        // -----------------------------------------
-        // UPDATE EXPENSE
-        // -----------------------------------------
-
-        const updatedExpense =
-            await prisma.$transaction(async (tx) => {
-                await tx.expenseSplit.deleteMany({
-                    where: {
-                        expenseId,
-                    },
-                });
-
-                return tx.expense.update({
-                    where: {
-                        id: expense.id,
-                    },
-
-                    data: {
-                        title,
-                        description: description || null,
-                        amount: amount.toFixed(2),
-                        payerId,
-
-                        isEdited: true,
-
-                        splits: {
-                            create: calculatedSplits.map(
-                                (split) => ({
-                                    userId: split.userId,
-                                    amount: split.amount.toFixed(2),
-                                })
-                            ),
-                        },
-                    },
-
-                    include: {
-                        payer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
-                            },
-                        },
-
-                        splits: {
-                            include: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        email: true,
-                                    },
-                                },
-                            },
-                        },
-                    },
-                });
-            });
+        // Refresh all pages that depend on expense data.
+        revalidatePath(`/groups/${groupId}`);
+        revalidatePath(`/groups/${groupId}/payments`);
+        revalidatePath(`/groups/${groupId}/balances`);
+        revalidatePath(`/dashboard`);
 
         return Response.json({
             success: true,
-            message: "Payment updated successfully.",
-
-            expense: {
-                id: updatedExpense.id,
-                title: updatedExpense.title,
-                description: updatedExpense.description,
-                amount: updatedExpense.amount.toString(),
-                payer: updatedExpense.payer,
-
-                splits: updatedExpense.splits.map(
-                    (split) => ({
-                        userId: split.userId,
-                        user: split.user,
-                        amount: split.amount.toString(),
-                    })
-                ),
-
-                createdAt: updatedExpense.createdAt,
-                updatedAt: updatedExpense.updatedAt,
-                isEdited: updatedExpense.isEdited,
-            },
+            message: "Expense undone successfully.",
         });
     } catch (error) {
-        console.error("Edit expense error:", error);
+        console.error("DELETE EXPENSE ERROR:", error);
 
         return Response.json(
             {
                 success: false,
-                message:
-                    "Something went wrong while editing the payment.",
+                message: "Failed to undo expense.",
             },
             { status: 500 }
         );
     }
 }
-
-// =====================================================
-// DELETE — DELETE EXPENSE
-// =====================================================

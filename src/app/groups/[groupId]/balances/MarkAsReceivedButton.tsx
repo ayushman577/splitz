@@ -1,71 +1,70 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 type MarkAsReceivedButtonProps = {
-    groupId: string;
-    payerId: string;
-    amount: number;
+  groupId: string;
+  payerId: string;
+  amount: number;
 };
 
 export default function MarkAsReceivedButton({
-    groupId,
-    payerId,
-    amount,
+  groupId,
+  payerId,
+  amount,
 }: MarkAsReceivedButtonProps) {
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-    async function handleMarkAsReceived() {
-        try {
-            setLoading(true);
+  async function handleMarkReceived() {
+    setLoading(true);
+    try {
+      const response = await fetch("/api/payments/settle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          groupId,
+          payerId,
+          amount,
+        }),
+      });
 
-            const response = await fetch(
-                `/api/groups/${groupId}/payments/received`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        payerId,
-                        amount,
-                    }),
-                }
-            );
+      if (!response.ok) {
+        throw new Error("Failed to record settlement");
+      }
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error ||
-                        "Failed to mark payment as received"
-                );
-            }
-
-            window.location.reload();
-        } catch (error) {
-            console.error(error);
-
-            alert(
-                error instanceof Error
-                    ? error.message
-                    : "Something went wrong"
-            );
-        } finally {
-            setLoading(false);
-        }
+      router.refresh();
+    } catch (err) {
+      console.error("Settlement error:", err);
+    } finally {
+      setLoading(false);
     }
+  }
 
-    return (
-        <button
-            type="button"
-            onClick={handleMarkAsReceived}
-            disabled={loading}
-            className="rounded-xl bg-[#3B82F6] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2563EB] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-            {loading
-                ? "Processing..."
-                : "Mark as Received"}
-        </button>
-    );
+  return (
+    <button
+      type="button"
+      onClick={handleMarkReceived}
+      disabled={loading}
+      className="group relative flex h-9 items-center justify-center overflow-hidden rounded-xl bg-[#3B82F6] px-3.5 text-xs font-semibold text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all duration-150 hover:bg-[#2563EB] hover:shadow-[0_0_22px_rgba(59,130,246,0.5)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+      <span className="relative flex items-center gap-1.5">
+        {loading ? (
+          <>
+            <span className="h-3 w-3 animate-spin rounded-full border border-white/30 border-t-white" />
+            <span>Confirming...</span>
+          </>
+        ) : (
+          <>
+            <span>Mark Received</span>
+            <span className="text-[11px] text-white/80">✓</span>
+          </>
+        )}
+      </span>
+    </button>
+  );
 }

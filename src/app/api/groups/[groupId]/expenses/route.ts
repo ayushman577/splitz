@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateGroupSettlements } from "@/lib/balances";
+import { sendExpenseBalanceEmail } from "@/lib/brevo";
 
 type SplitInput = {
     userId: string;
@@ -11,6 +13,7 @@ export async function POST(
     { params }: { params: Promise<{ groupId: string }> }
 ) {
     try {
+        
         const session = await auth();
 
         if (!session?.user?.email) {
@@ -23,7 +26,15 @@ export async function POST(
             );
         }
 
+        // -----------------------------------------
+        // GET GROUP ID
+        // -----------------------------------------
+
         const { groupId } = await params;
+
+        // -----------------------------------------
+        // READ REQUEST BODY
+        // -----------------------------------------
 
         const body = await request.json();
 
@@ -49,9 +60,10 @@ export async function POST(
                 ? "CUSTOM"
                 : "EQUAL";
 
-        const splits: SplitInput[] = Array.isArray(body.splits)
-            ? body.splits
-            : [];
+        const splits: SplitInput[] =
+            Array.isArray(body.splits)
+                ? body.splits
+                : [];
 
         // -----------------------------------------
         // BASIC VALIDATION
@@ -81,7 +93,8 @@ export async function POST(
             return Response.json(
                 {
                     success: false,
-                    message: "Amount must be greater than zero.",
+                    message:
+                        "Amount must be greater than zero.",
                 },
                 { status: 400 }
             );
@@ -111,7 +124,8 @@ export async function POST(
             return Response.json(
                 {
                     success: false,
-                    message: "At least one member must be selected.",
+                    message:
+                        "At least one member must be selected.",
                 },
                 { status: 400 }
             );
@@ -121,11 +135,12 @@ export async function POST(
         // FIND CURRENT USER
         // -----------------------------------------
 
-        const currentUser = await prisma.user.findUnique({
-            where: {
-                email: session.user.email,
-            },
-        });
+        const currentUser =
+            await prisma.user.findUnique({
+                where: {
+                    email: session.user.email,
+                },
+            });
 
         if (!currentUser) {
             return Response.json(
@@ -138,7 +153,7 @@ export async function POST(
         }
 
         // -----------------------------------------
-        // FIND GROUP + MEMBERS
+        // FIND GROUP + MEMBERS + USERS
         // -----------------------------------------
 
         const group = await prisma.group.findUnique({
@@ -146,7 +161,17 @@ export async function POST(
                 id: groupId,
             },
             include: {
-                members: true,
+                members: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
             },
         });
 
@@ -164,15 +189,18 @@ export async function POST(
         // CURRENT USER MUST BE A MEMBER
         // -----------------------------------------
 
-        const currentUserIsMember = group.members.some(
-            (member) => member.userId === currentUser.id
-        );
+        const currentUserIsMember =
+            group.members.some(
+                (member) =>
+                    member.userId === currentUser.id
+            );
 
         if (!currentUserIsMember) {
             return Response.json(
                 {
                     success: false,
-                    message: "You are not a member of this group.",
+                    message:
+                        "You are not a member of this group.",
                 },
                 { status: 403 }
             );
@@ -182,15 +210,18 @@ export async function POST(
         // PAYER MUST BE A GROUP MEMBER
         // -----------------------------------------
 
-        const payerIsMember = group.members.some(
-            (member) => member.userId === payerId
-        );
+        const payerIsMember =
+            group.members.some(
+                (member) =>
+                    member.userId === payerId
+            );
 
         if (!payerIsMember) {
             return Response.json(
                 {
                     success: false,
-                    message: "The selected payer is not a group member.",
+                    message:
+                        "The selected payer is not a group member.",
                 },
                 { status: 400 }
             );
@@ -204,13 +235,18 @@ export async function POST(
             (split) => split.userId
         );
 
-        const uniqueUserIds = new Set(splitUserIds);
+        const uniqueUserIds =
+            new Set(splitUserIds);
 
-        if (uniqueUserIds.size !== splitUserIds.length) {
+        if (
+            uniqueUserIds.size !==
+            splitUserIds.length
+        ) {
             return Response.json(
                 {
                     success: false,
-                    message: "A member cannot be selected more than once.",
+                    message:
+                        "A member cannot be selected more than once.",
                 },
                 { status: 400 }
             );
@@ -221,12 +257,16 @@ export async function POST(
         // -----------------------------------------
 
         const groupMemberIds = new Set(
-            group.members.map((member) => member.userId)
+            group.members.map(
+                (member) => member.userId
+            )
         );
 
-        const invalidMember = splitUserIds.some(
-            (userId) => !groupMemberIds.has(userId)
-        );
+        const invalidMember =
+            splitUserIds.some(
+                (userId) =>
+                    !groupMemberIds.has(userId)
+            );
 
         if (invalidMember) {
             return Response.json(
@@ -243,7 +283,8 @@ export async function POST(
         // CALCULATE SPLITS
         // -----------------------------------------
 
-        const amountInPaise = Math.round(amount * 100);
+        const amountInPaise =
+            Math.round(amount * 100);
 
         let calculatedSplits: {
             userId: string;
@@ -251,49 +292,62 @@ export async function POST(
         }[];
 
         if (splitType === "EQUAL") {
-            const memberCount = splitUserIds.length;
+            const memberCount =
+                splitUserIds.length;
 
-            const baseAmount = Math.floor(
-                amountInPaise / memberCount
-            );
+            const baseAmount =
+                Math.floor(
+                    amountInPaise / memberCount
+                );
 
             const remainder =
                 amountInPaise % memberCount;
 
-            calculatedSplits = splitUserIds.map(
-                (userId, index) => {
+            calculatedSplits =
+                splitUserIds.map(
+                    (userId, index) => {
+                        const splitAmount =
+                            baseAmount +
+                            (index < remainder
+                                ? 1
+                                : 0);
+
+                        return {
+                            userId,
+                            amount:
+                                splitAmount / 100,
+                        };
+                    }
+                );
+        } else {
+            calculatedSplits =
+                splits.map((split) => {
                     const splitAmount =
-                        baseAmount +
-                        (index < remainder ? 1 : 0);
+                        Number(split.amount);
 
                     return {
-                        userId,
-                        amount: splitAmount / 100,
+                        userId: split.userId,
+                        amount: splitAmount,
                     };
-                }
-            );
-        } else {
-            calculatedSplits = splits.map((split) => {
-                const splitAmount = Number(split.amount);
-
-                return {
-                    userId: split.userId,
-                    amount: splitAmount,
-                };
-            });
+                });
 
             // -----------------------------------------
             // CUSTOM SPLIT VALIDATION
             // -----------------------------------------
 
-            const customTotal = calculatedSplits.reduce(
-                (total, split) =>
-                    total +
-                    Math.round(split.amount * 100),
-                0
-            );
+            const customTotal =
+                calculatedSplits.reduce(
+                    (total, split) =>
+                        total +
+                        Math.round(
+                            split.amount * 100
+                        ),
+                    0
+                );
 
-            if (customTotal !== amountInPaise) {
+            if (
+                customTotal !== amountInPaise
+            ) {
                 return Response.json(
                     {
                         success: false,
@@ -310,7 +364,9 @@ export async function POST(
             const hasInvalidAmount =
                 calculatedSplits.some(
                     (split) =>
-                        !Number.isFinite(split.amount) ||
+                        !Number.isFinite(
+                            split.amount
+                        ) ||
                         split.amount <= 0
                 );
 
@@ -330,50 +386,304 @@ export async function POST(
         // CREATE EXPENSE + SPLITS
         // -----------------------------------------
 
-        const expense = await prisma.$transaction(
-            async (tx) => {
-                return tx.expense.create({
-                    data: {
-                        groupId,
-                        payerId,
-                        title,
-                        description: description || null,
-                        amount: amount.toFixed(2),
+        const expense =
+            await prisma.$transaction(
+                async (tx) => {
+                    return tx.expense.create({
+                        data: {
+                            groupId,
+                            payerId,
+                            title,
+                            description:
+                                description || null,
+                            amount:
+                                amount.toFixed(2),
 
-                        splits: {
-                            create: calculatedSplits.map(
-                                (split) => ({
-                                    userId: split.userId,
-                                    amount: split.amount.toFixed(2),
-                                })
-                            ),
-                        },
-                    },
-
-                    include: {
-                        payer: {
-                            select: {
-                                id: true,
-                                name: true,
-                                email: true,
+                            splits: {
+                                create:
+                                    calculatedSplits.map(
+                                        (split) => ({
+                                            userId:
+                                                split.userId,
+                                            amount:
+                                                split.amount.toFixed(
+                                                    2
+                                                ),
+                                        })
+                                    ),
                             },
                         },
 
-                        splits: {
-                            include: {
-                                user: {
-                                    select: {
-                                        id: true,
-                                        name: true,
-                                        email: true,
+                        include: {
+                            payer: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    email: true,
+                                },
+                            },
+
+                            splits: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            email: true,
+                                        },
                                     },
                                 },
                             },
                         },
-                    },
-                });
-            }
-        );
+                    });
+                }
+            );
+
+        // -----------------------------------------
+        // SEND PERSONALIZED EXPENSE EMAILS
+        // -----------------------------------------
+
+        try {
+            const settlements =
+                await calculateGroupSettlements(
+                    groupId
+                );
+
+            await Promise.all(
+                group.members.map(
+                    async (member) => {
+                        const user =
+                            member.user;
+
+                        if (!user.email) {
+                            return;
+                        }
+
+                        const owedSettlements =
+                            settlements.filter(
+                                (settlement) =>
+                                    settlement.fromUserId ===
+                                    user.id
+                            );
+
+                        const receivingSettlements =
+                            settlements.filter(
+                                (settlement) =>
+                                    settlement.toUserId ===
+                                    user.id
+                            );
+
+                        // -----------------------------------------
+                        // USER OWES MONEY
+                        // -----------------------------------------
+
+                        if (
+                            owedSettlements.length >
+                            0
+                        ) {
+                            const payments =
+                                owedSettlements.map(
+                                    (settlement) => {
+                                        const receiver =
+                                            group.members.find(
+                                                (
+                                                    member
+                                                ) =>
+                                                    member.userId ===
+                                                    settlement.toUserId
+                                            );
+
+                                        return {
+                                            name:
+                                                receiver
+                                                    ?.user
+                                                    .name ||
+                                                receiver
+                                                    ?.user
+                                                    .email ||
+                                                "a group member",
+
+                                            amount:
+                                                settlement.amount,
+                                        };
+                                    }
+                                );
+
+                            const totalAmount =
+                                owedSettlements.reduce(
+                                    (
+                                        sum,
+                                        settlement
+                                    ) =>
+                                        sum +
+                                        settlement.amount,
+                                    0
+                                );
+
+                            await sendExpenseBalanceEmail(
+                                {
+                                    email: user.email,
+
+                                    userName:
+                                        user.name ||
+                                        "there",
+
+                                    groupName:
+                                        group.name,
+
+                                    expenseTitle:
+                                        expense.title,
+
+                                    expenseAmount:
+                                        Number(
+                                            expense.amount
+                                        ),
+
+                                    payerName:
+                                        expense.payer
+                                            .name ||
+                                        expense.payer
+                                            .email,
+
+                                    status: "OWES",
+
+                                    totalAmount,
+
+                                    payments,
+                                }
+                            );
+
+                            return;
+                        }
+
+                        // -----------------------------------------
+                        // USER WILL RECEIVE MONEY
+                        // -----------------------------------------
+
+                        if (
+                            receivingSettlements.length >
+                            0
+                        ) {
+                            const payments =
+                                receivingSettlements.map(
+                                    (settlement) => {
+                                        const payer =
+                                            group.members.find(
+                                                (
+                                                    member
+                                                ) =>
+                                                    member.userId ===
+                                                    settlement.fromUserId
+                                            );
+
+                                        return {
+                                            name:
+                                                payer
+                                                    ?.user
+                                                    .name ||
+                                                payer
+                                                    ?.user
+                                                    .email ||
+                                                "a group member",
+
+                                            amount:
+                                                settlement.amount,
+                                        };
+                                    }
+                                );
+
+                            const totalAmount =
+                                receivingSettlements.reduce(
+                                    (
+                                        sum,
+                                        settlement
+                                    ) =>
+                                        sum +
+                                        settlement.amount,
+                                    0
+                                );
+
+                            await sendExpenseBalanceEmail(
+                                {
+                                    email: user.email,
+
+                                    userName:
+                                        user.name ||
+                                        "there",
+
+                                    groupName:
+                                        group.name,
+
+                                    expenseTitle:
+                                        expense.title,
+
+                                    expenseAmount:
+                                        Number(
+                                            expense.amount
+                                        ),
+
+                                    payerName:
+                                        expense.payer
+                                            .name ||
+                                        expense.payer
+                                            .email,
+
+                                    status:
+                                        "RECEIVES",
+
+                                    totalAmount,
+
+                                    payments,
+                                }
+                            );
+
+                            return;
+                        }
+
+                        // -----------------------------------------
+                        // USER IS SETTLED
+                        // -----------------------------------------
+
+                        await sendExpenseBalanceEmail(
+                            {
+                                email: user.email,
+
+                                userName:
+                                    user.name ||
+                                    "there",
+
+                                groupName:
+                                    group.name,
+
+                                expenseTitle:
+                                    expense.title,
+
+                                expenseAmount:
+                                    Number(
+                                        expense.amount
+                                    ),
+
+                                payerName:
+                                    expense.payer
+                                        .name ||
+                                    expense.payer
+                                        .email,
+
+                                status:
+                                    "SETTLED",
+
+                                totalAmount: 0,
+                            }
+                        );
+                    }
+                )
+            );
+        } catch (emailError) {
+            console.error(
+                "Expense email notification error:",
+                emailError
+            );
+        }
 
         // -----------------------------------------
         // RESPONSE
@@ -382,33 +692,54 @@ export async function POST(
         return Response.json(
             {
                 success: true,
-                message: "Payment added successfully.",
+
+                message:
+                    "Payment added successfully.",
 
                 expense: {
                     id: expense.id,
+
                     title: expense.title,
-                    description: expense.description,
-                    amount: expense.amount.toString(),
+
+                    description:
+                        expense.description,
+
+                    amount:
+                        expense.amount.toString(),
+
                     payer: expense.payer,
-                    splits: expense.splits.map(
-                        (split) => ({
-                            userId: split.userId,
-                            user: split.user,
-                            amount: split.amount.toString(),
-                        })
-                    ),
-                    createdAt: expense.createdAt,
-                    isEdited: expense.isEdited,
+
+                    splits:
+                        expense.splits.map(
+                            (split) => ({
+                                userId:
+                                    split.userId,
+
+                                user: split.user,
+
+                                amount:
+                                    split.amount.toString(),
+                            })
+                        ),
+
+                    createdAt:
+                        expense.createdAt,
+
+                    
                 },
             },
             { status: 201 }
         );
     } catch (error) {
-        console.error("Create expense error:", error);
+        console.error(
+            "Create expense error:",
+            error
+        );
 
         return Response.json(
             {
                 success: false,
+
                 message:
                     "Something went wrong while adding the payment.",
             },

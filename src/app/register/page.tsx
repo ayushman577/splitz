@@ -94,10 +94,10 @@ export default function RegisterPage() {
           href="/"
           className="group inline-block font-['Inter'] font-bold text-3xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
-          Split<span className="text-[#3B82F6] inline-block transition-transform duration-200 group-hover:scale-110">Z</span>
-        </Link>
+          <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+            SplitZ.
+          </span>        </Link>
       </div>
-
       {/* Register Card */}
       <div className="relative z-10 w-full max-w-md bg-[#101317]/80 backdrop-blur-xl border border-[#343A40] rounded-2xl p-7 sm:p-9 shadow-2xl shadow-black/60">
         <div className="mb-7 text-center">

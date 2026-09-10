@@ -2,15 +2,11 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { calculateGroupSettlements } from "@/lib/balances";
-
-import MarkAsReceivedButton from "./balances/MarkAsReceivedButton";
+import Link from "next/link";
 
 import InviteActions from "./InviteActions";
 import BackToDashboard from "./BackToDashboard";
 import AddPaymentModal from "./AddPaymentModal";
-import BalanceActions from "./balances/BalanceActions";
-
-import Link from "next/link";
 
 type GroupPageProps = {
     params: Promise<{
@@ -18,9 +14,7 @@ type GroupPageProps = {
     }>;
 };
 
-export default async function GroupPage({
-    params,
-}: GroupPageProps) {
+export default async function GroupPage({ params }: GroupPageProps) {
     const session = await auth();
 
     if (!session?.user?.email) {
@@ -46,7 +40,6 @@ export default async function GroupPage({
                     },
                 },
             },
-
             payments: {
                 where: {
                     status: "PENDING",
@@ -58,7 +51,6 @@ export default async function GroupPage({
                     amount: true,
                 },
             },
-
             expenses: {
                 orderBy: {
                     createdAt: "desc",
@@ -94,23 +86,31 @@ export default async function GroupPage({
         notFound();
     }
 
-    // Make sure the logged-in user is a member
     const isMember = group.members.some(
         (member) => member.user.email === session.user.email
     );
 
     if (!isMember) {
         return (
-            <main className="min-h-screen bg-[#101317] px-6 py-10 text-[#F4F7FA]">
-                <div className="mx-auto max-w-3xl">
-                    <div className="rounded-2xl border border-[#343A40] bg-[#181C21] p-8 text-center">
-                        <h1 className="text-2xl font-bold">
-                            Access Denied
-                        </h1>
-
-                        <p className="mt-2 text-sm text-[#AAB2BD]">
-                            You are not a member of this group.
-                        </p>
+            <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#101317] p-6 font-['Inter'] text-[#F4F7FA]">
+                <div className="pointer-events-none fixed left-1/2 top-1/3 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500/10 blur-[140px]" />
+                <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-8 text-center backdrop-blur-xl shadow-2xl">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-red-500/30 bg-red-500/10 text-red-400">
+                        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <h1 className="mt-4 text-xl font-bold tracking-tight text-[#F4F7FA]">Access Restricted</h1>
+                    <p className="mt-2 text-xs sm:text-sm text-[#AAB2BD]">
+                        You do not hold active membership in this group. Ask a member for an invite link.
+                    </p>
+                    <div className="mt-6">
+                        <Link
+                            href="/dashboard"
+                            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#3B82F6] px-5 text-xs font-semibold text-white shadow-lg shadow-[#3B82F6]/20 transition-all hover:bg-[#2563EB]"
+                        >
+                            Return to Dashboard
+                        </Link>
                     </div>
                 </div>
             </main>
@@ -129,419 +129,287 @@ export default async function GroupPage({
             settlement.toUserId === currentUser?.user.id
     );
 
-    const youOwe = userSettlements
-        .filter(
-            (settlement) =>
-                settlement.fromUserId === currentUser?.user.id
-        )
-        .reduce(
-            (total, settlement) => total + settlement.amount,
-            0
-        );
+    const totalYouOwe = userSettlements
+        .filter((settlement) => settlement.fromUserId === currentUser?.user.id)
+        .reduce((total, settlement) => total + settlement.amount, 0);
 
-    const owedToYou = userSettlements
-        .filter(
-            (settlement) =>
-                settlement.toUserId === currentUser?.user.id
-        )
-        .reduce(
-            (total, settlement) => total + settlement.amount,
-            0
-        );
+    const totalOwedToYou = userSettlements
+        .filter((settlement) => settlement.toUserId === currentUser?.user.id)
+        .reduce((total, settlement) => total + settlement.amount, 0);
 
-    const memberBalances = new Map<
-        string,
-        {
-            type: "owe" | "owed" | "settled";
-            amount: number;
-        }
-    >();
+    const netStanding = totalOwedToYou - totalYouOwe;
 
-    for (const member of group.members) {
-        if (member.user.id === currentUser?.user.id) {
-            continue;
-        }
-
-        const settlement = settlements.find(
-            (settlement) =>
-                (settlement.fromUserId === currentUser?.user.id &&
-                    settlement.toUserId === member.user.id) ||
-                (settlement.toUserId === currentUser?.user.id &&
-                    settlement.fromUserId === member.user.id)
-        );
-
-        if (!settlement) {
-            memberBalances.set(member.user.id, {
-                type: "settled",
-                amount: 0,
-            });
-
-            continue;
-        }
-
-        if (
-            settlement.fromUserId === currentUser?.user.id
-        ) {
-            memberBalances.set(member.user.id, {
-                type: "owe",
-                amount: settlement.amount,
-            });
-        } else {
-            memberBalances.set(member.user.id, {
-                type: "owed",
-                amount: settlement.amount,
-            });
-        }
-    }
-
-    const pendingPayments = group.payments;
-
-    const pendingPaymentMap = new Map<
-        string,
-        {
-            paymentId: string;
-            amount: number;
-        }
-    >();
-
-    for (const payment of pendingPayments) {
-        if (
-            payment.payerId === currentUser?.user.id
-        ) {
-            pendingPaymentMap.set(payment.receiverId, {
-                paymentId: payment.id,
-                amount: Number(payment.amount),
-            });
-        }
-    }
-
-    const appUrl =
-        process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
     const inviteLink = `${appUrl}/join/${group.joinCode}`;
 
     return (
-        <main className="min-h-screen bg-[#101317] text-[#F4F7FA]">
+        <div className="relative min-h-screen w-full overflow-x-hidden bg-[#101317] font-['Inter'] text-[#F4F7FA] selection:bg-[#3B82F6] selection:text-white">
+            {/* Background lighting glows */}
+            <div className="pointer-events-none fixed left-1/2 top-[-120px] h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-[#3B82F6]/10 blur-[170px]" />
+            <div className="pointer-events-none fixed bottom-0 right-0 h-[450px] w-[450px] rounded-full bg-[#343A40]/30 blur-[160px]" />
+
             {/* Header */}
-            <header className="border-b border-[#343A40] bg-[#101317]/90">
-                <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-                    <a
+            <header className="sticky top-0 z-40 border-b border-[#343A40]/80 bg-[#101317]/90 backdrop-blur-xl">
+                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+                    <Link
                         href="/dashboard"
-                        className="text-2xl font-bold tracking-tight"
+                        className="group text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
                     >
-                        Split<span className="text-[#3B82F6]">Z</span>
-                    </a>
+                        <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+                            SplitZ.
+                        </span>
+                    </Link>
 
                     <BackToDashboard />
                 </div>
             </header>
 
-            <div className="mx-auto max-w-6xl px-6 py-8">
+            {/* Main Container */}
+            <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:py-10 sm:px-6 lg:px-8">
+                {/* Group Hero Banner */}
+                <div className="relative overflow-hidden rounded-2xl border border-[#343A40]/80 bg-gradient-to-b from-[#181C21]/90 to-[#101317] p-6 backdrop-blur-xl shadow-2xl shadow-black/40 sm:p-8">
+                    <div className="space-y-2">
+                        <h1 className="text-2xl font-black tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">
+                            {group.name}
+                        </h1>
 
-                {/* Group Header */}
-                <div className="rounded-2xl border border-[#343A40] bg-[#181C21] p-6 sm:p-8">
-                    <p className="text-sm text-[#AAB2BD]">
-                        Group
-                    </p>
-
-                    <h1 className="mt-1 text-3xl font-bold">
-                        {group.name}
-                    </h1>
-
-                    {group.description && (
-                        <p className="mt-2 max-w-2xl text-sm text-[#AAB2BD]">
-                            {group.description}
-                        </p>
-                    )}
-
-
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                        <div className="rounded-xl border border-[#343A40] bg-[#101317] px-4 py-3">
-                            <p className="text-xs text-[#AAB2BD]">
-                                Members
+                        {group.description && (
+                            <p className="max-w-2xl text-xs sm:text-sm text-[#AAB2BD] leading-relaxed">
+                                {group.description}
                             </p>
-
-                            <p className="mt-1 text-lg font-semibold">
-                                {group.members.length}
-                            </p>
-                        </div>
-
-                        <div className="rounded-xl border border-[#343A40] bg-[#101317] px-4 py-3">
-                            <p className="text-xs text-[#AAB2BD]">
-                                Invite Code
-                            </p>
-
-                            <p className="mt-1 text-lg font-bold tracking-[0.2em] text-[#3B82F6]">
-                                {group.joinCode}
-                            </p>
-                        </div>
-                        <AddPaymentModal
-                            groupId={group.id}
-                            members={group.members.map((member) => ({
-                                id: member.user.id,
-                                name: member.user.name,
-                                email: member.user.email,
-                            }))}
-                        />
-                    </div>
-                </div>
-
-                {/* Invite */}
-                <div className="mt-6 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                    <h2 className="text-lg font-semibold">
-                        Invite People
-                    </h2>
-
-                    <p className="mt-1 text-sm text-[#AAB2BD]">
-                        Share this link or invite code with people you want
-                        to add to the group.
-                    </p>
-
-                    <div className="mt-5 rounded-xl border border-[#343A40] bg-[#101317] p-4">
-                        <p className="text-xs text-[#AAB2BD]">
-                            Invite Link
-                        </p>
-
-                        <p className="mt-2 break-all text-sm text-[#F4F7FA]">
-                            {inviteLink}
-                        </p>
+                        )}
                     </div>
 
-                    <InviteActions inviteLink={inviteLink} />
-                </div>
-
-                {/* Payments */}
-                <div className="mt-6 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                    <div className="flex items-center justify-between gap-4">
-                        <div>
-                            <h2 className="text-lg font-semibold">
-                                Payments
-                            </h2>
-
-                            <p className="mt-1 text-sm text-[#AAB2BD]">
-                                View all expenses and payment activity in this group.
-                            </p>
-                        </div>
-
-                        <Link
-                            href={`/groups/${group.id}/payments`}
-                            className="rounded-xl border border-[#343A40] bg-[#101317] px-4 py-2 text-sm font-medium text-[#AAB2BD] transition hover:border-[#3B82F6] hover:text-[#3B82F6]"
-                        >
-                            View All
-                        </Link>
-                    </div>
-
-                    <div className="mt-5 rounded-xl border border-[#343A40] bg-[#101317] p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium">
-                                    Payment History
-                                </p>
-
-                                <p className="mt-1 text-xs text-[#66707C]">
-                                    {group.expenses.length === 0
-                                        ? "No payments recorded yet."
-                                        : `${group.expenses.length} payment${group.expenses.length === 1
-                                            ? ""
-                                            : "s"
-                                        } recorded`}
-                                </p>
+                    {/* Members, Expenses & Add Payment Button in single responsive row */}
+                    <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-[#343A40]/60 pt-6">
+                        <div className="flex items-center gap-2.5">
+                            {/* Members badge with exact center alignment */}
+                            <div className="inline-flex h-9 sm:h-10 items-center gap-2 rounded-xl border border-[#343A40] bg-[#101317] px-3 shadow-sm">
+                                <span className="text-xs font-medium text-[#AAB2BD] leading-none">Members</span>
+                                <span className="h-3 w-px bg-[#343A40]" />
+                                <span className="font-mono [font-feature-settings:'zero'] text-xs sm:text-sm font-bold text-[#F4F7FA] leading-none">
+                                    {group.members.length}
+                                </span>
                             </div>
 
-                            <Link
-                                href={`/groups/${group.id}/payments`}
-                                className="text-sm font-medium text-[#3B82F6] transition hover:text-[#60A5FA]"
-                            >
-                                Open →
-                            </Link>
+                            {/* Expenses badge with exact center alignment */}
+                            <div className="inline-flex h-9 sm:h-10 items-center gap-2 rounded-xl border border-[#343A40] bg-[#101317] px-3 shadow-sm">
+                                <span className="text-xs font-medium text-[#AAB2BD] leading-none">Expenses</span>
+                                <span className="h-3 w-px bg-[#343A40]" />
+                                <span className="font-mono [font-feature-settings:'zero'] text-xs sm:text-sm font-bold text-[#F4F7FA] leading-none">
+                                    {group.expenses.length}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="shrink-0">
+                            <AddPaymentModal
+                                groupId={group.id}
+                                members={group.members.map((member) => ({
+                                    id: member.user.id,
+                                    name: member.user.name,
+                                    email: member.user.email,
+                                }))}
+                            />
                         </div>
                     </div>
                 </div>
 
-                {/* Balances */}
-                <div className="mt-6 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                    <div className="flex items-center justify-between gap-4">
+                {/* Summary Metrics Strip (You Owe, You Receive, Net Standing) */}
+                <div className="grid gap-3.5 sm:grid-cols-3 sm:gap-4">
+                    {/* You Owe Card */}
+                    <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#181316]/80 to-[#101317] p-5 shadow-lg shadow-black/30">
                         <div>
-                            <h2 className="text-lg font-semibold">
-                                Balances
-                            </h2>
-
-                            <p className="mt-1 text-sm text-[#AAB2BD]">
-                                See what you owe and what others owe you.
-                            </p>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-red-400/90 leading-none">
+                                    You Owe
+                                </span>
+                                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/10 text-red-400">
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
+                                <span className="text-base text-red-400/70 leading-none">₹</span>
+                                <p className="text-2xl font-bold tracking-tight text-red-400 tabular-nums sm:text-3xl leading-none">
+                                    {totalYouOwe.toFixed(2)}
+                                </p>
+                            </div>
                         </div>
-
-                        <Link
-                            href={`/groups/${group.id}/balances`}
-                            className="rounded-xl border border-[#343A40] bg-[#101317] px-4 py-2 text-sm font-medium text-[#AAB2BD] transition hover:border-[#3B82F6] hover:text-[#3B82F6]"
-                        >
-                            View Details
-                        </Link>
-                    </div>
-
-                    <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                        {/* You Owe */}
-                        <div className="rounded-xl border border-[#343A40] bg-[#101317] p-5">
-                            <p className="text-xs text-[#AAB2BD]">
-                                You owe
-                            </p>
-
-                            <p className="mt-2 text-2xl font-bold text-[#F4F7FA]">
-                                ₹{youOwe.toFixed(2)}
-                            </p>
-
-                            <p className="mt-1 text-xs text-[#66707C]">
-                                {youOwe > 0
-                                    ? "Amount you need to pay"
-                                    : "You're all settled up"}
-                            </p>
-                        </div>
-
-                        {/* Owed To You */}
-                        <div className="rounded-xl border border-[#343A40] bg-[#101317] p-5">
-                            <p className="text-xs text-[#AAB2BD]">
-                                Owed to you
-                            </p>
-
-                            <p className="mt-2 text-2xl font-bold text-[#3B82F6]">
-                                ₹{owedToYou.toFixed(2)}
-                            </p>
-
-                            <p className="mt-1 text-xs text-[#66707C]">
-                                {owedToYou > 0
-                                    ? "Others need to pay you"
-                                    : "Nothing is owed to you"}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Members */}
-                <div className="mt-6 rounded-2xl border border-[#343A40] bg-[#181C21] p-6">
-                    <div>
-                        <h2 className="text-lg font-semibold">
-                            Members
-                        </h2>
-
-                        <p className="mt-1 text-sm text-[#AAB2BD]">
-                            See everyone's balance with you.
+                        <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70 leading-none">
+                            {totalYouOwe > 0 ? "Outgoing ledger balance" : "All clear"}
                         </p>
                     </div>
 
-                    <div className="mt-5 space-y-3">
-                        {group.members.map((member) => {
-                            const isCurrentUser =
-                                member.user.id === currentUser?.user.id;
-
-                            const balance = memberBalances.get(
-                                member.user.id
-                            );
-
-                            return (
-                                <div
-                                    key={member.id}
-                                    className="rounded-xl border border-[#343A40] bg-[#101317] p-4"
-                                >
-                                    <div className="flex items-center justify-between gap-4">
-                                        {/* Member information */}
-                                        <div className="min-w-0">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <p className="text-sm font-medium">
-                                                    {member.user.name ||
-                                                        "Unnamed User"}
-                                                </p>
-
-                                                {isCurrentUser && (
-                                                    <span className="rounded-lg bg-[#3B82F6]/10 px-2 py-1 text-[10px] font-medium text-[#3B82F6]">
-                                                        You
-                                                    </span>
-                                                )}
-
-                                                {member.isAdmin && (
-                                                    <span className="rounded-lg bg-[#3B82F6]/10 px-2 py-1 text-[10px] font-medium text-[#3B82F6]">
-                                                        Admin
-                                                    </span>
-                                                )}
-                                            </div>
-
-                                            <p className="mt-1 truncate text-xs text-[#AAB2BD]">
-                                                {member.user.email}
-                                            </p>
-                                        </div>
-
-                                        {/* Balance information */}
-                                        {!isCurrentUser && balance && (
-                                            <div className="flex shrink-0 items-center gap-4">
-                                                {balance.type === "owe" && (
-                                                    <>
-                                                        {pendingPaymentMap.has(member.user.id) ? (
-                                                            <div className="text-right">
-                                                                <p className="text-sm font-semibold text-[#F4F7FA]">
-                                                                    ₹{balance.amount.toFixed(2)}
-                                                                </p>
-
-                                                                <p className="mt-1 text-xs text-[#F59E0B]">
-                                                                    🟡 Payment Pending
-                                                                </p>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <div className="text-right">
-                                                                    <p className="text-sm font-semibold text-[#F4F7FA]">
-                                                                        ₹{balance.amount.toFixed(2)}
-                                                                    </p>
-
-                                                                    <p className="mt-1 text-xs text-[#F59E0B]">
-                                                                        You owe
-                                                                    </p>
-                                                                </div>
-
-                                                                <BalanceActions
-                                                                    groupId={group.id}
-                                                                    receiverId={member.user.id}
-                                                                    amount={balance.amount}
-                                                                />
-                                                            </>
-                                                        )}
-                                                    </>
-                                                )}
-
-                                                {balance.type === "owed" && (
-                                                    <div className="flex flex-col items-end gap-2">
-                                                        <div className="text-right">
-                                                            <p className="text-sm font-semibold text-[#3B82F6]">
-                                                                ₹{balance.amount.toFixed(2)}
-                                                            </p>
-
-                                                            <p className="mt-1 text-xs text-[#3B82F6]">
-                                                                Owes you
-                                                            </p>
-                                                        </div>
-
-                                                        <MarkAsReceivedButton
-                                                            groupId={groupId}
-                                                            payerId={member.user.id}
-                                                            amount={balance.amount}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {balance.type === "settled" && (
-                                                    <span className="rounded-lg border border-[#343A40] px-3 py-2 text-xs text-[#66707C]">
-                                                        Settled
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
+                    {/* You Receive Card */}
+                    <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#111816]/80 to-[#101317] p-5 shadow-lg shadow-black/30">
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-400/90 leading-none">
+                                    You Will Receive
+                                </span>
+                                <div className="flex h-8 w-8 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25" />
+                                    </svg>
                                 </div>
-                            );
-                        })}
+                            </div>
+                            <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
+                                <span className="text-base text-emerald-400/70 leading-none">₹</span>
+                                <p className="text-2xl font-bold tracking-tight text-emerald-400 tabular-nums sm:text-3xl leading-none">
+                                    {totalOwedToYou.toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70 leading-none">
+                            {totalOwedToYou > 0 ? "Incoming pending returns" : "No pending claims"}
+                        </p>
+                    </div>
+
+                    {/* Net Standing Card */}
+                    <div className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/70 bg-gradient-to-b from-[#141A24]/80 to-[#101317] p-5 shadow-lg shadow-black/30">
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold uppercase tracking-wider text-[#AAB2BD] leading-none">
+                                    Net Standing
+                                </span>
+                                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#343A40] bg-[#181C21] text-xs font-bold text-[#AAB2BD]">
+                                    ⚖
+                                </span>
+                            </div>
+                            <div className="mt-3 flex items-baseline gap-1 font-mono [font-feature-settings:'zero']">
+                                <span
+                                    className={`text-base leading-none ${
+                                        netStanding > 0
+                                            ? "text-emerald-400/70"
+                                            : netStanding < 0
+                                            ? "text-red-400/70"
+                                            : "text-[#F4F7FA]/70"
+                                    }`}
+                                >
+                                    {netStanding > 0 ? "+" : netStanding < 0 ? "-" : ""}₹
+                                </span>
+                                <p
+                                    className={`text-2xl font-bold tracking-tight tabular-nums sm:text-3xl leading-none ${
+                                        netStanding > 0
+                                            ? "text-emerald-400"
+                                            : netStanding < 0
+                                            ? "text-red-400"
+                                            : "text-[#F4F7FA]"
+                                    }`}
+                                >
+                                    {Math.abs(netStanding).toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
+                        <p className="mt-3 border-t border-[#343A40]/40 pt-2 text-[11px] text-[#AAB2BD]/70 leading-none">
+                            {netStanding > 0 ? "Net credit balance" : netStanding < 0 ? "Net payable balance" : "Fully balanced ledger"}
+                        </p>
                     </div>
                 </div>
 
-            </div>
-        </main >
+                {/* Action Hub Cards */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                    {/* Member Balances Link */}
+                    <Link
+                        href={`/groups/${group.id}/balances`}
+                        className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/80 bg-gradient-to-b from-[#181C21]/90 to-[#101317] p-6 shadow-lg shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#3B82F6]/60 hover:shadow-[0_4px_25px_rgba(59,130,246,0.15)]"
+                    >
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 text-[#60A5FA]">
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
+                                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#343A40] bg-[#181C21] text-xs text-[#AAB2BD] transition-all group-hover:border-[#3B82F6]/60 group-hover:bg-[#3B82F6] group-hover:text-white">
+                                    →
+                                </span>
+                            </div>
+
+                            <h2 className="mt-4 text-base sm:text-lg font-bold text-[#F4F7FA] group-hover:text-white">
+                                Member Balances
+                            </h2>
+                            <p className="mt-1 text-xs text-[#AAB2BD] leading-relaxed">
+                                See individual shares, settlement details, and pay back group members.
+                            </p>
+                        </div>
+
+                        <div className="mt-6 flex items-center justify-between border-t border-[#343A40]/60 pt-4 text-xs font-semibold text-[#60A5FA]">
+                            <span>View member breakdown</span>
+                            <span className="transition-transform group-hover:translate-x-1">Open →</span>
+                        </div>
+                    </Link>
+
+                    {/* Expense History Link */}
+                    <Link
+                        href={`/groups/${group.id}/payments`}
+                        className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-[#343A40]/80 bg-gradient-to-b from-[#181C21]/90 to-[#101317] p-6 shadow-lg shadow-black/30 transition-all duration-200 hover:-translate-y-0.5 hover:border-emerald-500/60 hover:shadow-[0_4px_25px_rgba(16,185,129,0.15)]"
+                    >
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#343A40] bg-[#181C21] text-xs text-[#AAB2BD] transition-all group-hover:border-emerald-500/60 group-hover:bg-emerald-500 group-hover:text-white">
+                                    →
+                                </span>
+                            </div>
+
+                            <h2 className="mt-4 text-base sm:text-lg font-bold text-[#F4F7FA] group-hover:text-white">
+                                Expense History
+                            </h2>
+                            <p className="mt-1 text-xs text-[#AAB2BD] leading-relaxed">
+                                Browse through all bills, payments, split records, and receipts.
+                            </p>
+                        </div>
+
+                        <div className="mt-6 flex items-center justify-between border-t border-[#343A40]/60 pt-4 text-xs font-semibold text-emerald-400">
+                            <span>View all expenses</span>
+                            <span className="transition-transform group-hover:translate-x-1">Open →</span>
+                        </div>
+                    </Link>
+                </div>
+
+                {/* Invite Members Card */}
+                <div className="rounded-2xl border border-[#343A40]/80 bg-[#101317]/90 p-4 sm:p-6 shadow-lg shadow-black/30 backdrop-blur-md">
+                    {/* Header Row */}
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 text-sm text-[#60A5FA]">
+                                🔑
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-[#F4F7FA] sm:text-base">
+                                    Invite Members
+                                </h3>
+                                <p className="text-[11px] text-[#AAB2BD] sm:text-xs">
+                                    Share this link or code to add others to this group.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Code Badge */}
+                        <div className="flex shrink-0 items-center rounded-lg border border-[#343A40] bg-[#181C21] px-2.5 py-1">
+                            <span className="font-mono [font-feature-settings:'zero'] text-xs font-bold tracking-widest text-[#3B82F6]">
+                                {group.joinCode}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Unified Link & Action Pill Bar */}
+                    <div className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-[#343A40] bg-[#181C21]/60 p-1.5 pl-3.5">
+                        <span className="truncate font-mono text-xs text-[#AAB2BD]/80 select-all">
+                            {inviteLink}
+                        </span>
+
+                        <InviteActions inviteLink={inviteLink} />
+                    </div>
+                </div>
+            </main>
+        </div>
     );
 }

@@ -64,7 +64,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative min-h-screen w-full bg-[#101317] text-[#F4F7FA] flex flex-col justify-center items-center p-6 selection:bg-[#3B82F6] selection:text-white overflow-hidden">
-      
+
       {/* Ambient Blue Glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#3B82F6]/10 rounded-full blur-[150px] pointer-events-none" />
 
@@ -74,9 +74,8 @@ export default function LoginPage() {
           href="/"
           className="group inline-block font-['Inter'] font-bold text-3xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
-          Split
-          <span className="text-[#3B82F6] inline-block transition-transform duration-200 group-hover:scale-110">
-            Z
+          <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+            SplitZ.
           </span>
         </Link>
       </div>
