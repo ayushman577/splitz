@@ -71,8 +71,6 @@ model Expense {
   description String?
   amount      Decimal @db.Decimal(12, 2)
 
-  isEdited Boolean @default(false)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

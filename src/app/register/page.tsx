@@ -89,15 +89,18 @@ export default function RegisterPage() {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-[#3B82F6]/10 rounded-full blur-[150px] pointer-events-none" />
 
       {/* Brand Logo */}
-      <div className="relative z-10 mb-8 text-center">
+      <div className="relative z-10 mb-6 mt-2 text-center">
         <Link
           href="/"
-          className="group inline-block font-['Inter'] font-bold text-3xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+          className="group inline-flex items-center gap-2.5 font-['Inter'] text-3xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
+        
           <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
             SplitZ.
-          </span>        </Link>
+          </span>
+        </Link>
       </div>
+
       {/* Register Card */}
       <div className="relative z-10 w-full max-w-md bg-[#101317]/80 backdrop-blur-xl border border-[#343A40] rounded-2xl p-7 sm:p-9 shadow-2xl shadow-black/60">
         <div className="mb-7 text-center">

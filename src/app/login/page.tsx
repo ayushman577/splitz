@@ -72,8 +72,9 @@ export default function LoginPage() {
       <div className="relative z-10 mb-8 text-center">
         <Link
           href="/"
-          className="group inline-block font-['Inter'] font-bold text-3xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+          className="group inline-flex items-center gap-2.5 font-['Inter'] text-3xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
+          
           <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
             SplitZ.
           </span>

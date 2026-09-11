@@ -10,13 +10,19 @@ export default function Home() {
       {/* Header */}
       <header className="relative z-10 w-full flex items-center justify-between max-w-6xl mx-auto">
 
+        {/* Enhanced Logo */}
         <Link
           href="/"
-          className="group font-['Inter'] font-bold text-2xl tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+          className="group inline-flex items-center gap-2.5 font-['Inter'] text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-transform duration-200 group-hover:scale-105">
+            <span className="bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] bg-clip-text text-transparent font-extrabold text-xl">
+              Z
+            </span>
+          </div>
           <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
-                            SplitZ.
-                        </span>
+            SplitZ.
+          </span>
         </Link>
 
         <nav className="flex items-center gap-3">
@@ -32,9 +38,10 @@ export default function Home() {
           {/* Sign Up */}
           <Link
             href="/register"
-            className="font-['Inter'] font-medium text-sm px-5 py-2.5 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(59,130,246,0.45)] active:translate-y-0 active:scale-95 transition-all duration-200"
+            className="group relative overflow-hidden font-['Inter'] font-semibold text-sm px-5 py-2.5 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(59,130,246,0.45)] active:translate-y-0 active:scale-95 transition-all duration-200"
           >
-            Sign Up
+            <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out bg-gradient-to-r from-transparent via-white/20 to-transparent pointer-events-none" />
+            <span className="relative">Sign Up</span>
           </Link>
 
         </nav>
@@ -45,13 +52,13 @@ export default function Home() {
 
         <div className="max-w-3xl mx-auto flex flex-col items-center">
 
-          {/* Headline */}
-          <h1 className="font-['Inter'] font-bold text-4xl sm:text-6xl md:text-7xl leading-[1.1] tracking-tight text-[#F4F7FA]">
+          {/* Balanced Headline */}
+          <h1 className="font-['Inter'] font-normal text-3xl sm:text-5xl md:text-6xl leading-[1.15] tracking-tight text-[#F4F7FA]">
             Split expenses. <br />
-            <span className="text-[#3B82F6]">Settle easily!</span>
+            <span className="font-bold bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent">
+              Settle easily!
+            </span>
           </h1>
-
-          
 
           {/* Subtitle */}
           <p className="mt-5 font-['Inter'] text-base sm:text-lg max-w-md text-[#AAB2BD] leading-relaxed">
@@ -73,7 +80,7 @@ export default function Home() {
             {/* Get Started */}
             <Link
               href="/register"
-              className="group relative overflow-hidden font-['Inter'] font-medium text-sm sm:text-base px-7 py-3 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(59,130,246,0.45)] active:translate-y-0 active:scale-95 transition-all duration-200"
+              className="group relative overflow-hidden font-['Inter'] font-semibold text-sm sm:text-base px-7 py-3 rounded-xl bg-[#3B82F6] text-white hover:bg-[#2563EB] hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(59,130,246,0.45)] active:translate-y-0 active:scale-95 transition-all duration-200"
             >
 
               {/* Light beam sheen animation */}
@@ -95,7 +102,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="relative z-10 w-full text-center py-4 border-t border-[#343A40]/60 max-w-6xl mx-auto">
         <p className="font-['Inter'] text-xs text-[#AAB2BD]/70 tracking-wide">
-          © 2026 Splitz. All rights reserved.
+          © {new Date().getFullYear()} Splitz. All rights reserved.
         </p>
       </footer>
 

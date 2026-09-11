@@ -176,11 +176,10 @@ export default async function DashboardPage() {
           {/* SplitZ Logo */}
           <Link
             href="/dashboard"
-            className="group font-['Inter'] text-2xl font-bold tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
+            className="group font-['Inter'] text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
           >
-            Split
-            <span className="inline-block text-[#3B82F6] underline decoration-[#3B82F6] decoration-2 underline-offset-4 transition-transform duration-200 group-hover:scale-110">
-              Z
+            <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
+              SplitZ.
             </span>
           </Link>
 
