@@ -15,11 +15,6 @@ export default function Home() {
           href="/"
           className="group inline-flex items-center gap-2.5 font-['Inter'] text-2xl font-black tracking-tight text-[#F4F7FA] transition-transform duration-200 active:scale-95"
         >
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-transform duration-200 group-hover:scale-105">
-            <span className="bg-gradient-to-r from-[#3B82F6] to-[#60A5FA] bg-clip-text text-transparent font-extrabold text-xl">
-              Z
-            </span>
-          </div>
           <span className="bg-gradient-to-r from-[#3B82F6] via-[#60A5FA] to-[#A78BFA] bg-clip-text text-transparent transition-all duration-200 group-hover:opacity-90">
             SplitZ.
           </span>

@@ -1,35 +1,31 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { notFound, redirect } from "next/navigation";
+import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import { calculateGroupSettlements } from "@/lib/balances";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+import MarkAsReceivedButton from "./MarkAsReceivedButton";
+import BalanceActions from "./BalanceActions";
+import PaymentConfirmationActions from "./PaymentConfirmationActions";
 
-type PageProps = {
+type PaymentsPageProps = {
   params: Promise<{
     groupId: string;
   }>;
 };
 
-export default async function PaymentsPage({ params }: PageProps) {
-  const { groupId } = await params;
-
+export default async function PaymentsPage({
+  params,
+}: PaymentsPageProps) {
   const session = await auth();
 
-  if (!session?.user?.email) {
+  const userEmail = session?.user?.email;
+
+  if (!userEmail) {
     redirect("/login");
   }
 
-  const currentUser = await prisma.user.findUnique({
-    where: {
-      email: session.user.email,
-    },
-  });
-
-  if (!currentUser) {
-    redirect("/login");
-  }
+  const { groupId } = await params;
 
   const group = await prisma.group.findUnique({
     where: {
@@ -38,7 +34,14 @@ export default async function PaymentsPage({ params }: PageProps) {
     include: {
       members: {
         include: {
-          user: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
         },
         orderBy: {
           joinedAt: "asc",
@@ -62,6 +65,16 @@ export default async function PaymentsPage({ params }: PageProps) {
 
   if (!group) {
     notFound();
+  }
+
+  const currentUser = await prisma.user.findUnique({
+    where: {
+      email: userEmail,
+    },
+  });
+
+  if (!currentUser) {
+    redirect("/login");
   }
 
   const isMember = group.members.some(
@@ -120,8 +133,8 @@ export default async function PaymentsPage({ params }: PageProps) {
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="relative z-10 mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* Main Container with Entrance Animation */}
+      <main className="relative z-10 mx-auto max-w-5xl space-y-6 px-4 py-6 transition-opacity duration-500 ease-out sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Title Header */}
         <div className="space-y-1">
           <h1 className="text-2xl font-black tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">
@@ -255,7 +268,7 @@ export default async function PaymentsPage({ params }: PageProps) {
           ) : (
             <div className="divide-y divide-[#343A40]/40 overflow-hidden rounded-2xl border border-[#343A40]/70 bg-[#101317]/85 backdrop-blur-md">
               {group.expenses.map((expense) => {
-                const isPayer = expense.payer.id === currentUser.id;
+                const isPayer = expense.payerId === currentUser.id;
                 const payerName = isPayer
                   ? "You"
                   : expense.payer.name || expense.payer.email;

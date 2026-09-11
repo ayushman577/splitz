@@ -1,8 +1,8 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { calculateGroupSettlements } from "@/lib/balances";
+import Link from "next/link";
 
 import MarkAsReceivedButton from "./MarkAsReceivedButton";
 import BalanceActions from "./BalanceActions";
@@ -206,8 +206,8 @@ export default async function BalancesPage({
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="relative z-10 mx-auto max-w-5xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* Main Container with Entrance Animation */}
+      <main className="relative z-10 mx-auto max-w-5xl space-y-6 px-4 py-6 transition-opacity duration-500 ease-out sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Title Header */}
         <div>
           <h1 className="text-2xl font-black tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">

@@ -7,6 +7,7 @@ import Link from "next/link";
 import InviteActions from "./InviteActions";
 import BackToDashboard from "./BackToDashboard";
 import AddPaymentModal from "./AddPaymentModal";
+import GroupSettings from "./GroupSettings";
 
 type GroupPageProps = {
   params: Promise<{
@@ -202,20 +203,31 @@ export default async function GroupPage({
         </div>
       </header>
 
-      {/* Main Container */}
-      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-6 sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
+      {/* Main Container with Entrance Animation */}
+      <main className="relative z-10 mx-auto max-w-6xl space-y-6 px-4 py-6 transition-opacity duration-500 ease-out sm:space-y-8 sm:px-6 sm:py-10 lg:px-8">
         {/* Group Hero Banner */}
         <div className="relative overflow-hidden rounded-2xl border border-[#343A40]/80 bg-gradient-to-b from-[#181C21]/90 to-[#101317] p-6 shadow-2xl shadow-black/40 backdrop-blur-xl sm:p-8">
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">
-              {group.name}
-            </h1>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-black tracking-tight text-[#F4F7FA] sm:text-3xl lg:text-4xl">
+                {group.name}
+              </h1>
 
-            {group.description && (
-              <p className="max-w-2xl text-xs leading-relaxed text-[#AAB2BD] sm:text-sm">
-                {group.description}
-              </p>
-            )}
+              {group.description && (
+                <p className="max-w-2xl text-xs leading-relaxed text-[#AAB2BD] sm:text-sm">
+                  {group.description}
+                </p>
+              )}
+            </div>
+
+            {/* Group Edit / Delete Action Hub */}
+            <div className="shrink-0">
+              <GroupSettings
+                groupId={group.id}
+                initialName={group.name}
+                initialDescription={group.description}
+              />
+            </div>
           </div>
 
           {/* Members, Expenses & Add Payment Button */}
@@ -512,10 +524,7 @@ export default async function GroupPage({
                 <h3 className="text-sm font-bold text-[#F4F7FA] sm:text-base">
                   Invite Members
                 </h3>
-
-                <p className="text-[11px] text-[#AAB2BD] sm:text-xs">
-                  Share this link or code to add others to this group.
-                </p>
+                
               </div>
             </div>
 

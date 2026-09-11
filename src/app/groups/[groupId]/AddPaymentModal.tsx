@@ -235,6 +235,7 @@ export default function AddPaymentModal({
       className="group relative inline-flex h-10 items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#3B82F6] px-4 text-xs font-semibold text-white shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all duration-150 hover:bg-[#2563EB] hover:shadow-[0_0_24px_rgba(59,130,246,0.45)] active:scale-95"
     >
       <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+      <span className="text-sm font-bold leading-none">+</span>
       <span>Add Expense</span>
     </button>
   );
@@ -264,9 +265,7 @@ export default function AddPaymentModal({
                     <h2 className="text-base font-bold text-[#F4F7FA]">
                       Add Expense
                     </h2>
-                    <p className="text-xs text-[#AAB2BD]">
-                      Record and split costs with group members
-                    </p>
+                    
                   </div>
                 </div>
 
@@ -327,29 +326,31 @@ export default function AddPaymentModal({
                   {/* Payer & Split Mode Segment */}
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {/* Payer Card */}
-                    <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-3.5">
+                    <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-4">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-[#AAB2BD]">
                         Paid By
                       </label>
-                      <select
-                        value={payerId}
-                        onChange={(e) => setPayerId(e.target.value)}
-                        className="mt-1.5 h-9 w-full rounded-xl border border-[#343A40] bg-[#101317] px-3 text-xs font-medium text-[#F4F7FA] outline-none focus:border-[#3B82F6]"
-                      >
-                        {members.map((m) => (
-                          <option key={m.id} value={m.id} className="bg-[#181C21] text-[#F4F7FA]">
-                            {m.name || m.email.split("@")[0]}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="mt-1.5 flex h-10 items-center rounded-xl border border-[#343A40] bg-[#101317] px-3 focus-within:border-[#3B82F6]">
+                        <select
+                          value={payerId}
+                          onChange={(e) => setPayerId(e.target.value)}
+                          className="w-full bg-transparent text-xs font-medium text-[#F4F7FA] outline-none cursor-pointer"
+                        >
+                          {members.map((m) => (
+                            <option key={m.id} value={m.id} className="bg-[#181C21] text-[#F4F7FA]">
+                              {m.name || m.email.split("@")[0]}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
                     {/* Split Mode Card */}
-                    <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-3.5">
+                    <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-4">
                       <label className="text-[11px] font-semibold uppercase tracking-wider text-[#AAB2BD]">
                         Split Method
                       </label>
-                      <div className="mt-1.5 flex h-9 items-center gap-1 rounded-xl border border-[#343A40] bg-[#101317] p-1">
+                      <div className="mt-1.5 flex h-10 items-center gap-1 rounded-xl border border-[#343A40] bg-[#101317] p-1">
                         <button
                           type="button"
                           onClick={() => setSplitType("EQUAL")}
@@ -377,7 +378,7 @@ export default function AddPaymentModal({
                   </div>
 
                   {/* Note Description Input */}
-                  <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-3.5">
+                  <div className="rounded-2xl border border-[#343A40] bg-[#181C21]/90 p-4">
                     <label className="text-[11px] font-semibold uppercase tracking-wider text-[#AAB2BD]">
                       Note <span className="text-[10px] lowercase text-[#66707C]">(optional)</span>
                     </label>
@@ -386,7 +387,7 @@ export default function AddPaymentModal({
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Add receipt details, notes..."
-                      className="mt-1 w-full bg-transparent text-xs text-[#F4F7FA] outline-none placeholder:text-[#66707C]"
+                      className="mt-1.5 w-full rounded-xl border border-[#343A40] bg-[#101317] px-3.5 py-2.5 text-xs text-[#F4F7FA] outline-none placeholder:text-[#66707C] focus:border-[#3B82F6]"
                     />
                   </div>
 
