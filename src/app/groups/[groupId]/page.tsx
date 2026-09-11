@@ -178,7 +178,7 @@ export default async function GroupPage({
     process.env.NEXT_PUBLIC_APP_URL ||
     "http://localhost:3000";
 
-  const inviteLink = `${appUrl}/join/${group.joinCode}`;
+  const inviteLink = `${appUrl}/groups/join/${group.joinCode}`;
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden bg-[#101317] font-['Inter'] text-[#F4F7FA] selection:bg-[#3B82F6] selection:text-white">
