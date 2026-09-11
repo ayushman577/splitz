@@ -2,11 +2,6 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { calculateGroupSettlements } from "@/lib/balances";
-
-import MarkAsReceivedButton from "./MarkAsReceivedButton";
-import BalanceActions from "./BalanceActions";
-import PaymentConfirmationActions from "./PaymentConfirmationActions";
 
 type PaymentsPageProps = {
   params: Promise<{
