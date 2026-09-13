@@ -21,11 +21,13 @@ export default function JoinGroupPage({
   const [code, setCode] = useState(joinCode.toUpperCase());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notLoggedIn, setNotLoggedIn] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     setError("");
+    setNotLoggedIn(false);
 
     const trimmedCode = code.trim();
 
@@ -48,6 +50,12 @@ export default function JoinGroupPage({
       });
 
       const data = await response.json();
+
+      // User is not logged in
+      if (response.status === 401) {
+        setNotLoggedIn(true);
+        return;
+      }
 
       // User is already a member
       if (response.status === 409 && data.alreadyMember) {
@@ -136,60 +144,98 @@ export default function JoinGroupPage({
             </p>
           </div>
 
-          {/* Form */}
-          <form
-            onSubmit={handleSubmit}
-            className="mt-7 space-y-4"
-          >
-            <div>
-              <label
-                htmlFor="code"
-                className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#AAB2BD]"
-              >
-                Invite Code or Link
-              </label>
-
-              <input
-                id="code"
-                type="text"
-                value={code}
-                onChange={(e) =>
-                  setCode(e.target.value.toUpperCase())
-                }
-                placeholder="e.g. K7X9P2"
-                disabled={loading}
-                autoFocus
-                className="w-full rounded-xl border border-[#343A40] bg-[#343A40]/30 px-4 py-2.5 font-mono text-sm text-[#F4F7FA] outline-none transition-all placeholder:text-[#AAB2BD]/40 focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6] disabled:opacity-50"
-              />
-            </div>
-
-            {/* Error */}
-            {error && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-400">
-                {error}
+          {/* Not Logged In Message */}
+          {notLoggedIn && (
+            <div className="mt-7 rounded-xl border border-[#3B82F6]/30 bg-[#3B82F6]/10 p-4 text-center">
+              <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-[#3B82F6]/15 text-[#60A5FA]">
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 19a6 6 0 00-12 0m6-8a4 4 0 100-8 4 4 0 000 8zm7-3v6m3-3h-6"
+                  />
+                </svg>
               </div>
-            )}
 
-            {/* Join Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative flex h-11 w-full items-center justify-center overflow-hidden rounded-xl bg-[#3B82F6] px-4 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-150 hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.5)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+              <p className="text-sm font-medium text-[#F4F7FA]">
+                You are not logged in
+              </p>
+
+              <p className="mt-1 text-xs text-[#AAB2BD]">
+                Please log in to continue joining this group.
+              </p>
+
+              <Link
+                href="/login"
+                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#3B82F6] px-6 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.45)] active:scale-[0.98]"
+              >
+                Log In
+              </Link>
+            </div>
+          )}
+
+          {/* Form */}
+          {!notLoggedIn && (
+            <form
+              onSubmit={handleSubmit}
+              className="mt-7 space-y-4"
             >
-              <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+              <div>
+                <label
+                  htmlFor="code"
+                  className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-[#AAB2BD]"
+                >
+                  Invite Code or Link
+                </label>
 
-              <span className="relative flex items-center justify-center gap-2">
-                {loading ? (
-                  <>
-                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Joining Group...</span>
-                  </>
-                ) : (
-                  "Join Group"
-                )}
-              </span>
-            </button>
-          </form>
+                <input
+                  id="code"
+                  type="text"
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.toUpperCase())
+                  }
+                  placeholder="e.g. K7X9P2"
+                  disabled={loading}
+                  autoFocus
+                  className="w-full rounded-xl border border-[#343A40] bg-[#343A40]/30 px-4 py-2.5 font-mono text-sm text-[#F4F7FA] outline-none transition-all placeholder:text-[#AAB2BD]/40 focus:border-[#3B82F6] focus:ring-1 focus:ring-[#3B82F6] disabled:opacity-50"
+                />
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-xs font-medium text-red-400">
+                  {error}
+                </div>
+              )}
+
+              {/* Join Button */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative flex h-11 w-full items-center justify-center overflow-hidden rounded-xl bg-[#3B82F6] px-4 text-xs font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.35)] transition-all duration-150 hover:bg-[#2563EB] hover:shadow-[0_0_28px_rgba(59,130,246,0.5)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:text-sm"
+              >
+                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+
+                <span className="relative flex items-center justify-center gap-2">
+                  {loading ? (
+                    <>
+                      <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      <span>Joining Group...</span>
+                    </>
+                  ) : (
+                    "Join Group"
+                  )}
+                </span>
+              </button>
+            </form>
+          )}
         </div>
       </div>
 
